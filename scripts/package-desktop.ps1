@@ -1,4 +1,4 @@
-param([switch]$SkipBuild, [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.1.0-desktop-preview.2')
+param([switch]$SkipBuild, [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.1.0-desktop-preview.4')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -13,6 +13,8 @@ try {
         $notices = [Text.StringBuilder]::new()
         [void]$notices.AppendLine('ORVEXA open-source notices. Includes selected Windows/Wasm build and test dependencies.')
         [void]$notices.AppendLine([IO.File]::ReadAllText((Join-Path $projectRoot 'LICENSE')))
+        [void]$notices.AppendLine("`n--- font/Inter ---`n")
+        [void]$notices.AppendLine([IO.File]::ReadAllText((Join-Path $projectRoot 'web\src\fonts\LICENSE-Inter.txt')))
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $stage 'third-party-licenses') -Recurse -File | Sort-Object FullName) {
             [void]$notices.AppendLine("`n--- $($file.Directory.Name)/$($file.Name) ---`n")
             [void]$notices.AppendLine([IO.File]::ReadAllText($file.FullName))

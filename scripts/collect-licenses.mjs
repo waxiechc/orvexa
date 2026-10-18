@@ -44,7 +44,7 @@ for (const key of Object.keys(lock.packages)) {
   copy('npm', p.name, p.version, folder, p.license || '', extra);
 }
 writeFileSync(join(output, 'index.json'), JSON.stringify(index, null, 2));
-const combined = ['ORVEXA: лицензии исходного ПО / open-source notices', readFileSync('LICENSE', 'utf8')];
+const combined = ['ORVEXA: лицензии исходного ПО / open-source notices', readFileSync('LICENSE', 'utf8'), '\n--- font/Inter ---\n', readFileSync('web/src/fonts/LICENSE-Inter.txt', 'utf8')];
 for (const dir of readdirSync(output, { withFileTypes: true }).filter(d => d.isDirectory()).sort((a, b) => a.name.localeCompare(b.name)))
   for (const file of readdirSync(join(output, dir.name)).sort()) combined.push(`\n--- ${dir.name}/${file} ---\n`, readFileSync(join(output, dir.name, file), 'utf8'));
 writeFileSync('web/public/open-source-notices.txt', combined.join('\n'));

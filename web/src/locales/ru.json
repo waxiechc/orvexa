@@ -428,5 +428,21 @@
   "invalid or noncanonical hex encoding": "Неверная или неканоническая hex-кодировка",
   "invalid test address or checksum": "Неверный тестовый адрес или контрольная сумма",
   "invalid Ed25519 signature or public key": "Неверная подпись Ed25519 или публичный ключ",
-  "operating-system randomness unavailable": "Системный источник случайности недоступен"
+  "operating-system randomness unavailable": "Системный источник случайности недоступен",
+  "Backup": "Копия",
+  "Connecting…": "Подключение…",
+  "Create your first wallet": "Создайте первый кошелёк",
+  "How ORVEXA v1 works": "Как устроена ORVEXA v1",
+  "Max": "Макс.",
+  "Offline": "Нет связи",
+  "Online": "В сети",
+  "Step {v0} of 2": "Шаг {v0} из 2",
+  "Test atoms. No monetary value.": "Тестовые атомы без денежной стоимости.",
+  "Transaction hash": "Хеш транзакции",
+  "You send": "Вы отправляете",
+  "Syncing": "Синхронизация",
+  "Ready to send": "Готов к переводу",
+  "Different network": "Другая сеть",
+  "Syncing: block #{v0} of #{v1}. The balance may be incomplete.": "Синхронизация: блок №{v0} из №{v1}. Баланс может быть неполным.",
+  "Sending is available after sync.": "Отправка станет доступна после синхронизации."
 }

@@ -1,9 +1,32 @@
 # Проверки ORVEXA — 2026-10-18
 
 [История и предыдущие результаты на английском](VALIDATION.en.md).
-Текущий выпуск — `v0.1.0-desktop-preview.2`, русский основной / English опционально.
+Текущий выпуск — `v0.1.0-desktop-preview.4`, русский основной / English опционально.
 
-## Выполнено на Windows x64
+## preview.4 — выполнено на Mac (Apple M4, macOS 27.0.1)
+
+- `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets
+  --all-features --locked -- -D warnings`: успешно.
+- `cargo test --workspace --locked`: **48 пройдено**.
+- `npm run build`, `npm run test:unit`: успешно. `npx playwright test`:
+  **6 пройдено**, 1 пропущен (нативное окно Windows), включая новый тест
+  состояния «Синхронизация».
+- macOS universal: `verify-macos-release.mjs` — PASS; окно `ORVEXA.app`
+  открыто, узел в сети. Подробности и непроверенное — [MACOS.md](MACOS.md).
+- Windows x64: собран кросс-компиляцией `scripts/package-windows-cross.sh`
+  (cargo-xwin, Homebrew LLVM + lld, static CRT), проверен PE-заголовок x64.
+  **На настоящем Windows не запускался.**
+
+```text
+e4344ac021bab70ed82d1c2358855f5dc349c3555d1b14c274cb14b30a08e26d  ORVEXA-macOS-universal.zip
+9aaf34de86f147ee4b1162d74dcce727dfbaf5565ffcb57a5be647d3dba9aede  ORVEXA.exe
+0578180f76303f841e2b84f282c18d5d146e0dde63b73ab918e777c533edf408  ORVEXA-Desktop-Windows-x64.zip
+```
+
+GitHub CI для этого коммита не запускался (блокировка биллинга аккаунта);
+результаты выше — локальные.
+
+## preview.2 — выполнено на Windows x64
 
 - `cargo fmt --all -- --check`: успешно.
 - `cargo check --workspace --locked`: успешно.

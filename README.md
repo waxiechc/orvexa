@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/assets/repository-banner.svg" alt="ORVEXA — Кошелёк, обозреватель и ваш узел" width="100%"></p>
 
-<p align="center"><a href="https://waxiechc.github.io/orvexa/">Сайт</a> · <a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.2">Скачать приложение</a> · <a href="docs/DESKTOP_APP.md">Инструкция</a> · <a href="docs/MACOS.md">macOS</a> · <a href="docs/PLATFORM_PLAN.md">План</a> · <a href="README.en.md">English</a></p>
+<p align="center"><a href="https://waxiechc.github.io/orvexa/">Сайт</a> · <a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.4">Скачать приложение</a> · <a href="docs/DESKTOP_APP.md">Инструкция</a> · <a href="docs/MACOS.md">macOS</a> · <a href="docs/PLATFORM_PLAN.md">План</a> · <a href="README.en.md">English</a></p>
 
 ORVEXA — исследовательский проект криптовалюты на Rust: Windows-приложение,
 локальный кошелёк, обозреватель блоков и настоящий P2P full node.
@@ -18,10 +18,11 @@ ORVEXA — исследовательский проект криптовалю�
 
 ## Скачать и запустить
 
-[**ORVEXA.exe — Windows x64**](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/ORVEXA.exe)
+[**ORVEXA.exe — Windows x64**](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA.exe)
 
-[Полный ZIP с инструкциями и лицензиями](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/ORVEXA-Desktop-Windows-x64.zip)
-· [Контрольные суммы](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/SHA256SUMS.txt)
+[Полный ZIP с инструкциями и лицензиями](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA-Desktop-Windows-x64.zip)
+· [**ORVEXA для macOS 14+**](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA-macOS-universal.zip) ([как открыть](docs/MACOS.md))
+· [Контрольные суммы](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/SHA256SUMS.txt)
 
 1. Откройте EXE. Нужен системный Microsoft WebView2 runtime. Rust, Node.js,
    Docker, VPN и облачный аккаунт для запуска не нужны.

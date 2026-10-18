@@ -1,15 +1,16 @@
 {
-    "version":  "0.1.0-desktop-preview.2",
-    "exe_bytes":  13044736,
-    "zip_bytes":  5553429,
-    "embedded_web":  true,
-    "configuration":  "Release x64 static CRT",
-    "languages":  [
-                      "ru",
-                      "en"
-                  ],
-    "macos_download_available":  false,
-    "privacy":  "transparent v1",
-    "validator_quorum":  false,
-    "rewards":  false
+  "version": "0.1.0-desktop-preview.4",
+  "exe_bytes": 13081600,
+  "zip_bytes": 5857059,
+  "embedded_web": true,
+  "configuration": "Release x64 static CRT (cross-compiled with cargo-xwin)",
+  "languages": [
+    "ru",
+    "en"
+  ],
+  "macos_download_available": true,
+  "privacy": "transparent v1",
+  "validator_quorum": false,
+  "rewards": false,
+  "macos_zip_bytes": 11961666
 }

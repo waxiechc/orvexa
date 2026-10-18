@@ -23,7 +23,8 @@ release tag commit поддерживаемого репозитория с со
 
 Также используются RustCrypto Argon2/XChaCha20-Poly1305, ed25519-dalek, Tokio,
 Axum, Reqwest, SQLite/rusqlite, wasm-bindgen, React, Vite, Lucide, qrcode и
-json-bigint. subtle 2.6.1 сравнивает credential, не меняет transaction crypto.
+json-bigint. Интерфейс встраивает шрифт Inter 4.0 (SIL OFL 1.1, подмножество
+латиница + кириллица): `web/src/fonts/LICENSE-Inter.txt`. subtle 2.6.1 сравнивает credential, не меняет transaction crypto.
 SQLite — public domain; Rust bindings имеют собственные лицензии.
 
 **Юридические тексты лицензий сохранены в оригинале**, без подмены переводом.

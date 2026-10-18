@@ -1,347 +1,116 @@
 ---
 name: ORVEXA Wallet, Explorer & Node
-description: Russian-first operating and release-download surfaces with an English option for ORVEXA v1.
+description: Russian-first desktop wallet for ORVEXA v1 with an English option. Obsidian/navy brand, chamfer geometry from the wordmark.
 colors:
-  obsidian: "#050608"
-  midnight-navy: "#101A27"
-  deep-blue: "#1B2B3D"
-  steel-blue: "#334B65"
-  slate-blue: "#526D89"
-  ice-white: "#E6F2FF"
+  obsidian: "#050608"        # canvas
+  midnight-navy: "#101A27"   # raised surface, selected nav, dialogs
+  deep-blue: "#1B2B3D"       # block tiles, mark backgrounds
+  steel-blue: "#334B65"      # selected wallet border, hover borders
+  slate-blue: "#526D89"      # focus ring, offline dot
+  ice-white: "#E6F2FF"       # text, primary actions
   secondary-text: "#9AA9BA"
   borders: "#253243"
+derived:
+  surface: "#0B121B"         # large panels (obsidian → midnight)
+  surface-hover: "#15212F"
+  line: "#1A2533"            # row separators
+  text-strong: "#F3F8FF"
+  text-faint: "#6F8196"
+  incoming: "#A9CFF5"        # received amounts, online dot — the only "positive" tone
 typography:
-  display:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "clamp(36px, 4.1vw, 60px)"
-    fontWeight: 450
-    lineHeight: 1.15
-    letterSpacing: "-0.035em"
-  headline:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "30px"
-    fontWeight: 550
-    lineHeight: 1.25
-    letterSpacing: "-0.03em"
-  title:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "17px"
-    fontWeight: 550
-    lineHeight: 1.25
-    letterSpacing: "-0.015em"
-  body:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "14px"
-    fontWeight: 400
-    lineHeight: 1.5
-  button:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "12px"
-    fontWeight: 550
-    lineHeight: 1.5
-  mono:
-    fontFamily: '"Cascadia Code", "SFMono-Regular", Consolas, monospace'
-    fontSize: "12px"
-    fontWeight: 400
-  site-headline:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "clamp(46px, 5.4vw, 76px)"
-    fontWeight: 500
-    lineHeight: 1.04
-    letterSpacing: "-0.038em"
-  site-headline-ru:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "clamp(36px, 4.1vw, 60px)"
-    fontWeight: 500
-    lineHeight: 1.04
-    letterSpacing: "-0.038em"
-  site-title:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "clamp(30px, 3vw, 42px)"
-    fontWeight: 500
-    lineHeight: 1.14
-    letterSpacing: "-0.03em"
-  site-body:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "15px"
-    fontWeight: 400
-    lineHeight: 1.65
-  site-button:
-    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
-    fontSize: "13px"
-    fontWeight: 600
+  ui: "Inter 4.0 (bundled, Latin + Cyrillic subset), 400/500/600"
+  display: "Inter Display 500/600 — balance, page titles, large figures"
+  mono: "SF Mono / Cascadia Code — addresses and hashes only"
+  scale: "12 · 13 · 14 (body) · 15 · 18 · 20 · 24 · 32 (h1) · 40–64 (figures)"
 rounded:
-  badge: "4px"
-  field: "5px"
-  control: "6px"
-  navigation: "7px"
-  notice: "8px"
-  preview: "9px"
-  panel: "10px"
-  dialog: "12px"
-spacing:
-  compact: "10px"
-  label: "12px"
-  inline: "16px"
-  mobile-gutter: "20px"
-  panel-compact: "24px"
-  tablet-gutter: "30px"
-  site-gutter: "60px"
-  site-mobile-gutter: "22px"
-components:
-  button-primary:
-    backgroundColor: "{colors.ice-white}"
-    textColor: "{colors.midnight-navy}"
-    typography: "{typography.button}"
-    rounded: "{rounded.control}"
-    padding: "10px 17px"
-  button-primary-hover:
-    backgroundColor: "#FFFFFF"
-  button-secondary:
-    backgroundColor: "rgba(27,43,61,0.38)"
-    textColor: "{colors.ice-white}"
-    typography: "{typography.button}"
-    rounded: "{rounded.control}"
-    padding: "10px 17px"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.secondary-text}"
-    typography: "{typography.button}"
-    rounded: "{rounded.control}"
-    padding: "10px"
-  input:
-    backgroundColor: "#0E1925"
-    textColor: "{colors.ice-white}"
-    rounded: "{rounded.field}"
-    padding: "11px 13px"
-  navigation-active:
-    backgroundColor: "#162231"
-    textColor: "{colors.ice-white}"
-    rounded: "{rounded.navigation}"
-    padding: "12px 13px"
-  network-panel:
-    backgroundColor: "rgba(16,26,39,0.42)"
-    textColor: "{colors.ice-white}"
-    rounded: "{rounded.panel}"
-    padding: "25px 25px 18px"
-  badge-confirmed:
-    backgroundColor: "rgba(51,75,101,0.25)"
-    textColor: "#D2E5F9"
-    rounded: "{rounded.badge}"
-    padding: "3px 7px"
-  badge-pending:
-    backgroundColor: "rgba(82,109,137,0.12)"
-    textColor: "#C2CFDF"
-    rounded: "{rounded.badge}"
-    padding: "3px 7px"
-  node-operation:
-    backgroundColor: "rgba(16,26,39,0.42)"
-    textColor: "{colors.ice-white}"
-    rounded: "{rounded.panel}"
-    padding: "28px"
-  site-download-button:
-    backgroundColor: "{colors.ice-white}"
-    textColor: "{colors.midnight-navy}"
-    typography: "{typography.site-button}"
-    rounded: "{rounded.control}"
-    padding: "13px 19px"
-  site-planned-badge:
-    backgroundColor: "transparent"
-    textColor: "{colors.secondary-text}"
-    rounded: "{rounded.badge}"
-    padding: "1px 7px"
-  locale-picker:
-    backgroundColor: "{colors.midnight-navy}"
-    textColor: "{colors.ice-white}"
-    rounded: "{rounded.field}"
-    padding: "8px 5px"
-  file-picker:
-    backgroundColor: "#0E1925"
-    textColor: "{colors.secondary-text}"
-    rounded: "{rounded.field}"
-    padding: "9px"
+  pill: "999px — buttons, chips, badges, topbar controls"
+  sm: "9px"
+  md: "12px — inputs, nav items"
+  lg: "18px — rows, inner panels"
+  xl: "24px — surfaces, dialogs"
+  cut: "22px chamfer — signature surfaces only"
 ---
 
 # Design System: ORVEXA Wallet, Explorer & Node
 
-## Overview
+## Direction
 
-**Creative North Star: "ORVEXA local wallet workspace"**
+A modern self-custody wallet, not an operations console. The balance and the
+next action come first; protocol facts stay available but quiet. Russian is the
+default language, English is explicit. Brand commitments from PRODUCT.md hold:
+the white eye-flower mark and ORVEXA wordmark, the obsidian/navy palette, no
+purple, red, neon or glow.
 
-Russian is the default language, with an explicit English option. Testers create
-wallets, transfer test atoms and run verifying nodes. A release-download site
-introduces the working desktop preview and its current network boundaries. The
-confirmed brief is premium,
-restrained, technological and minimal: a cold navy field, clear system type,
-geometric identity, thin borders and space around important actions.
+## The one bold idea: the wordmark's chamfer
 
-The approved eye/flower symbol and ORVEXA wordmark anchor every route. Current
-SVGs in `web/public/brand/` are path-based reconstructions traced from
-`ORVEXA.png`; they contain no embedded bitmap and are not an original vector
-master. Preserve these geometries and proportions when extending the interface.
+The ORVEXA letters have cut corners. That cut — top-left and bottom-right — is
+used only on things that carry identity:
 
-**Key Characteristics:**
+- the balance card on the dashboard (`.hero-card`, 22px cut, 1px gradient edge
+  drawn by an outer layer showing through `::before`);
+- the receive QR frame (`.qr-frame`, 18px);
+- block tiles in Explorer (`.block-cube`, 9px; the newest block is ice-white);
+- the node status mark (`.node-operating-mark`, 12px).
 
-- Obsidian-to-navy background with Ice White actions and identity.
-- Open transaction rows, exact integers and compact network facts.
-- Visible connection, pending, confirmed, unavailable and empty states.
-- One visual language across Wallet, Explorer, Node controls and release downloads.
-- Actual application captures and explicit preview/planned labels on the site.
-- Presentation translation without rewriting names, addresses or protocol data.
+Everything else uses ordinary rounded surfaces, so the cut stays recognisable.
 
-This records the built system in `web/src/tokens.css`, `web/src/styles.css` and
-`web/src/App.tsx`, including `web/src/NodePanel.tsx`, `web/src/FileInput.tsx` and
-the `web/src/i18n.ts` presentation layer. The Russian download site in
-`docs/index.html`, its English counterpart in `docs/en/index.html`, and shared
-`docs/site.css` use the same identity as a release
-journal: download action and preview boundary beside an actual native-app
-capture, followed by setup, network limitations and staged goals. Its five-block
-contract records the chosen structure and seed `215b7181`; this is a surface
-expression, not a replacement brand.
+## Address marks
 
-## Colors
-
-Use the user's exact palette names. The frontmatter is the palette reference;
-CSS tokens remain the runtime source. Additional muted blues in component
-definitions describe existing surface and state variants. The site's shorter
-CSS names (`--navy`, `--ice`, `--text` and peers) map to this same eight-color
-palette; they do not establish another color system. Sidecar tonal ramps are
-preview metadata, not extra runtime colors.
-
-### Primary
-
-- **Ice White:** logo paths, primary button fills, principal text and keyboard focus.
-- **Slate Blue:** visible field and Explorer-search borders, secondary hover borders.
-
-### Neutral
-
-- **Obsidian:** darkest page and navigation foundation.
-- **Midnight Navy:** far end of the background gradient and primary-button text.
-- **Deep Blue:** translucent secondary surfaces and information strips.
-- **Steel Blue:** selection, quiet separators and confirmed-badge surface tint.
-- **Secondary Text:** supporting copy, labels and inactive navigation.
-- **Borders:** structural dividers and resting panel outlines.
-
-**The Restrained State Rule.** Use wording, icons and contrast to distinguish
-states within the blue palette. Do not introduce red, purple, neon or glow.
-
-## Typography
-
-The UI uses the local Segoe UI Variable/system stack, with Cascadia Code/system
-monospace for hashes and addresses. No remote font is required. Headings are
-compact; the balance is the principal display numeral. Amounts and network facts
-use tabular numerals so updates do not shift alignment.
-
-The frontmatter records the base hierarchy. Mobile page headings reduce to
-(26px); the balance has explicit responsive sizes in the stylesheet. Transaction
-rows use compact labels (10–13px), while long hashes wrap in detail views.
-Keep the balance display role for operating numerals. The download site uses
-its separate, larger headline and more open body roles; feature descriptions
-and notices remain compact. Do not convert ordinary labels to tracked
-uppercase decoration.
-
-The Russian release headline uses its own smaller role from the existing size
-ramp so Cyrillic copy fits the established split composition. Site captions,
-metadata, footer copy and Mac-instruction links use at least (12px); do not
-shrink translated copy to restore an English line break. The local font stack
-falls back to the operating system on macOS; no custom Mac face or new visual
-identity is introduced.
+`AddressMark.tsx` draws a six-petal picture from the first bytes of an address,
+in the logo's geometry and only palette tones. It appears in the wallet picker,
+wallet cards, activity rows, send review and transaction details. It helps
+people recognise an address at a glance; full addresses are still shown wherever
+a decision is made (send review, receive, explorer).
 
 ## Layout
 
-The desktop shell has fixed navigation (236px), a top bar (92px) and a main
-container capped at (1450px) with horizontal gutters (46px). Dashboard places the
-balance and actions beside network facts, then uses full-width ledger rows.
-Forms pair a working panel with explanatory side copy; detail pages keep hashes
-and addresses available without truncating the underlying value.
-
-At (1250px) navigation and gutters narrow; at (1000px) Dashboard and forms stack.
-At (760px) navigation becomes an off-canvas drawer, the top bar reduces to
-(70px), and main gutters become (20px). The drawer is inert while closed;
-opening it focuses its close control, traps Tab, accepts Escape and restores
-focus to the menu control. Transaction rows reflow rather than requiring a
-desktop-width table. The minimum supported page width is (320px), with a
-further compact adjustment at (370px).
-
-Node controls extend this shell with a bordered operation panel, two public-file
-fields, wrapping live facts and an open peer list. At the mobile breakpoint the
-file fields and identity labels stack. Navigation scrolls vertically when its
-full route list exceeds the available window height.
-
-The release site uses a centered container (1400px), desktop gutters (60px),
-and a split opening with copy beside a larger actual-app capture. The following
-sections use open columns and fine dividers. At (1100px) gutters and gaps
-contract; at (760px) columns stack and gutters become (22px); at (390px)
-gutters become (18px). The download action and transparent-preview explanation
-precede the image on mobile. This reading order belongs to the site, not to
-every operating screen.
-
-The top bar keeps a native RU/EN selector beside the wallet picker. The site
-links its two static language routes directly. Let longer translated headings,
-file names and notices wrap. On the narrowest site header (360px), the privacy
-anchor is hidden to retain room for brand and language navigation; the privacy
-section remains in the page.
-
-## Elevation & Depth
-
-Depth comes from restrained tonal layers, translucent navy panels and one-pixel
-borders. The page gradient runs diagonally from Obsidian through a muted dark
-blue into Midnight Navy. The balance panel has its own quiet blue gradient and
-a faint approved-symbol watermark. Neither is a glow treatment.
-
-Within the app, only modal dialogs use a deep ambient shadow, behind a dark
-backdrop; resting panels and buttons are flat. The site adds an ambient shadow
-under its actual-app capture, framed by a quiet window caption. It does not
-apply that treatment to ordinary content or imply live telemetry. Motion consists of short state-color transitions,
-the mobile drawer slide, a desktop balance reveal and the refresh spinner.
-`prefers-reduced-motion` disables transitions and animations. Exact shadow,
-gradient and motion values are preserved in the sidecar.
-
-Hidden documents pause UI polling and request fresh observations when visible
-again; this does not stop the native node. The desktop source uses a two-worker
-async runtime. These are implementation boundaries, not measured CPU, battery
-or performance claims. Actual macOS runtime behavior remains unverified.
-
-## Shapes
-
-Moderately rounded panels, compact controls and smaller badges share the radius
-roles in the frontmatter. Circle direction markers distinguish incoming and
-outgoing transfers. Use thin structural borders; field borders deliberately use
-the brighter Slate Blue rather than the quieter panel-border color. Keep the
-eye/flower identity separate from functional line icons. The site repeats compact
-rounded download actions, a softly rounded preview frame and an outlined network
-notice; numbered setup steps use small circles.
+- Sidebar (244px): mark + wordmark, three unlabeled groups — money (overview,
+  send, receive, operations), network (explorer, node), keys (wallets, backup,
+  settings) — and a network chip at the bottom. Below 760px it becomes a drawer.
+- Topbar: connection pill (connecting / node connected / node unavailable),
+  refresh, language, wallet picker with the active address mark. Sticky, blurred.
+- Page title only (no slogans or subtitles). Content max 1180px.
+- Dashboard: chamfered balance card with four round quick actions (send,
+  receive, backup, produce block) + network card; recent activity below.
+- Send / receive / backup: centered flow cards (max 540px), two-step send with
+  a large amount field and a review that leads with the amount.
+- Explorer: large search, one stats strip, pending transfers, block list.
+- Settings: connection list + "how ORVEXA v1 works" trust model.
 
 ## Components
 
-### Buttons
+- Buttons are pills: primary ice-white on obsidian; secondary translucent ice;
+  ghost text. `.wide` = 52px full-width confirm.
+- Inputs 48px, radius 12, dark fill, slate focus ring. Checkbox labels are row
+  flex; ordinary labels stack.
+- Badges: confirmed (light steel tint, check), pending (muted, pulsing dot).
+- Activity rows: address mark with a direction dot, title + counterparty,
+  status, signed amount (received amounts in `--incoming`).
+- Notices: one style; errors use a stronger border and `role="alert"`.
 
-Ice White primary actions, outlined blue secondary actions and quiet ghost
-actions share a minimum height (41px). Hover changes the surface or text tone;
-keyboard focus uses an Ice White outline. Disabled controls reduce opacity and
-retain a clear unavailable cursor. No decorative lift or glow is used.
-The site download link keeps the same palette and radius with a taller hit
-area (minimum 49px); secondary release/source links remain text links.
+## Motion
 
-### Inputs / Fields
+One orchestrated moment: the balance figure rises in on load (520ms, desktop
+only). Dialogs scale in. Everything else is direct feedback — hover tints and a
+small press scale. `prefers-reduced-motion` turns animation off.
 
-Dark filled fields have a Slate Blue stroke, visible labels and a brighter
-focus stroke. Amounts are whole test atoms; password fields remain password
-inputs. Search uses one outlined enclosing surface and visible focus-within.
-Validation failures appear as icon-and-text notices, without relying on color.
-File inputs retain the real native chooser and keyboard semantics. A transparent
-native input covers a bordered field containing translated chooser/empty labels
-and the unchanged selected filename. Focus-within outlines the entire field;
-the visible duplicate labels are hidden from assistive technology.
-The chooser dialog itself retains the operating system's behavior and language.
+## Copy
 
-### Navigation
+Sentence case, no all-caps labels, no marketing lines. Russian plurals for
+counted nouns (`count()` in App.tsx). Protocol data, addresses and user labels
+are never translated. Transparency of v1 is stated once per context: the chip on
+the balance card, the note under the send flow, the trust model in settings.
 
-Wallet routes and Explorer share the fixed sidebar and original brand lockup.
-Active routes use a navy fill, thin outline and small white dot; `aria-current`
-exposes selection. Mobile uses the keyboard-managed drawer described above.
-A skip link leads directly to the main content.
+## Files
 
+`web/src/tokens.css` (palette, derived tones, fonts), `web/src/styles.css`,
+`web/src/App.tsx`, `web/src/NodePanel.tsx`, `web/src/AddressMark.tsx`,
+`web/src/fonts/` (Inter, OFL — see `LICENSE-Inter.txt`).
+
+The download site (`docs/index.html`, `docs/site.css`) still uses the previous
+expression of the same brand and should be brought to this system next.
+
+## Rules carried over
 ### Language and Presentation
 
 Russian is the initial application locale; the explicit RU/EN selection updates
@@ -357,17 +126,10 @@ grouping, not the signed value or API representation. The site provides Russian
 at the root and English under `en/`, with language links and correct document
 language. It keeps the same release-journal structure in both languages.
 
-### Cards / Containers
-
-The balance panel is the visual anchor; the network panel is quieter. Use
-bordered form panels for input and open divided rows for activity and blocks.
-Reserve the modal shadow and backdrop for actual dialogs. QR codes sit on an
-Ice White square and encode the selected wallet's real address.
-
 ### Transaction and Network States
 
-Pending/Ожидает and Confirmed/Подтверждено badges use words and distinct icons
-in muted blue tones.
+Pending/Ожидает and Confirmed/Подтверждено badges use words and distinct marks
+(pulsing dot, check) in muted blue tones.
 Confirmed means accepted block inclusion by the connected authority chain;
 confirmation counts do not imply decentralized finality. Genesis allocation is
 shown separately from transfers. Missing node data uses an em dash; empty

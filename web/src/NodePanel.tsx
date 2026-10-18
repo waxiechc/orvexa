@@ -1,7 +1,7 @@
 import FileInput from './FileInput';
 import { t, localizedError } from './i18n';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Activity, Check, CircleAlert, Cpu, FileCheck2, Globe2, LockKeyhole, Play, RefreshCw, Square, Upload } from 'lucide-react';
+import { Check, CircleAlert, Cpu, FileCheck2, Globe2, LockKeyhole, Play, RefreshCw, Square, Upload } from 'lucide-react';
 import { atoms, errorText, parseNodeJson, requestRaw, short } from './adapter';
 
 type Runtime = { enabled: boolean; transport: string; role: string; halted: boolean; peer_id: string; listen_addresses: string[]; peers: { url: string; state: string; height: string | null }[] };
@@ -96,7 +96,7 @@ export default function NodePanel({ changed }: { changed: () => void }) {
       </>}
     </section>
     <section className="node-boundary"><div><Globe2 size={19}/><h2>{t("What your node contributes")}</h2></div><p>{t("It checks signatures and ledger rules, stores accepted blocks, and exchanges transactions with peers. Keep ORVEXA open to participate.")}</p><p><strong>{t("Block production and rewards are not enabled for this role.")}</strong>{t(" V1 still uses one configured authority. Multiple validators, automatic proposer rotation and rewards belong to a later network upgrade.")}</p></section>
-    {!needsSetup && <section className="ledger-section"><div className="section-heading"><div><h2>{t("Peer connections")}</h2><p>{t("Actual connections reported by the local node.")}</p></div><Activity size={19}/></div>
+    {!needsSetup && <section className="ledger-section"><div className="section-heading"><div><h2>{t("Peer connections")}</h2><p>{t("Actual connections reported by the local node.")}</p></div></div>
       {peers.length ? <div className="node-peer-list">{peers.map(peer => <div key={peer.url}><span className="connection-dot online"/><code title={peer.url}>{short(peer.url, 18)}</code><span>{t(peer.state)}</span><span>{peer.height === null ? t("Height not received") : `#${atoms(peer.height)}`}</span></div>)}</div>
         : <div className="node-peer-empty"><Globe2 size={22}/><div><h3>{!fresh ? t("Peer state not available") : runtime ? t("No peers connected") : t("Node is stopped")}</h3><p>{!fresh ? t("Peer counts will appear after a successful status check.") : running ? t("Check that a seed is online and reachable. This app does not supply a hosted bootstrap server.") : external ? t("Check the external launcher for connection settings.") : t("Start the node to connect to the configured network.")}</p></div></div>}
     </section>}

@@ -25,7 +25,8 @@ is build-time only, never a node runtime network dependency.
 
 Key existing dependencies include RustCrypto Argon2/XChaCha20-Poly1305,
 ed25519-dalek, Tokio, Axum, Reqwest, SQLite/rusqlite, wasm-bindgen, React, Vite,
-Lucide, qrcode and json-bigint. `subtle` 2.6.1 provides credential comparison;
+Lucide, qrcode and json-bigint. The interface embeds the Inter 4.0 typeface
+(SIL OFL 1.1, Latin + Cyrillic subset): `web/src/fonts/LICENSE-Inter.txt`. `subtle` 2.6.1 provides credential comparison;
 it is not a new transaction primitive. SQLite itself is public domain; its Rust
 bindings have their own licenses. Notices retain upstream terms.
 

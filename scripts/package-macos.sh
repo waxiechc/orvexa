@@ -3,8 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo 'Run this script on a Mac with Xcode Command Line Tools.' >&2; exit 1; }
 [[ "$(sw_vers -productVersion | cut -d. -f1)" -ge 14 ]] || { echo 'macOS 14+ is required.' >&2; exit 1; }
-version="${ORVEXA_VERSION:-0.1.0-desktop-preview.2}"
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]] || { echo 'Invalid version' >&2; exit 1; }
+version="${ORVEXA_VERSION:-0.1.0-desktop-preview.4}"
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]] || { echo 'Invalid version' >&2; exit 1; }
 arch="${1:-universal}"
 case "$arch" in
   universal) targets=(aarch64-apple-darwin x86_64-apple-darwin); label=universal ;;
@@ -15,6 +15,7 @@ esac
 for command in cargo rustup node npm wasm-bindgen xcrun; do command -v "$command" >/dev/null || { echo "Missing build tool: $command" >&2; exit 1; }; done
 [[ "$(wasm-bindgen --version)" == 'wasm-bindgen 0.2.129' ]] || { echo 'Install wasm-bindgen-cli 0.2.129 --locked' >&2; exit 1; }
 xcrun --find clang >/dev/null
+node -e 'if (Number(process.versions.node.split(".")[0]) < 24) throw Error("Node.js 24+ is required")'
 rustup target add "${targets[@]}"
 rustup toolchain install 1.93.0 --profile minimal --target wasm32-unknown-unknown
 cargo fetch --locked
@@ -58,7 +59,8 @@ cat > "$app/Contents/Info.plist" <<EOF
 <key>CFBundleIconFile</key><string>ORVEXA.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleVersion</key><string>4</string>
+<key>ORVEXAPreviewVersion</key><string>$version</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
@@ -72,7 +74,7 @@ cat > "$app/Contents/Info.plist" <<EOF
 </dict></plist>
 EOF
 cp LICENSE "$app/Contents/Resources/"
-cp docs/DESKTOP_APP.md docs/MACOS.md "$output/"
+cp docs/DESKTOP_APP.md docs/MACOS.md LICENSE "$output/"
 plutil -lint "$app/Contents/Info.plist"
 # Ad-hoc signature is for bundle integrity, NOT Developer ID/notarization.
 # Supply an existing identity explicitly for a Developer ID build.
@@ -80,7 +82,12 @@ codesign --force --sign "${ORVEXA_SIGN_IDENTITY:--}" "$app"
 codesign --verify --strict "$app"
 xcrun lipo -info "$app/Contents/MacOS/ORVEXA"
 archive="$output/ORVEXA-macOS-$label.zip"
-ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
+staging="$output/archive"
+mkdir -p "$staging"
+ditto "$app" "$staging/ORVEXA.app"
+cp "$output/MACOS.md" "$output/DESKTOP_APP.md" "$output/LICENSE" "$staging/"
+(cd "$staging" && shasum -a 256 ORVEXA.app/Contents/MacOS/ORVEXA > SHA256SUMS-app.txt)
+ditto -c -k --sequesterRsrc "$staging" "$archive"
 (cd "$output" && shasum -a 256 "$(basename "$archive")" > SHA256SUMS-macOS.txt)
 echo "App: $app"
 echo "Archive: $archive"

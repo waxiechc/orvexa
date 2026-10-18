@@ -226,3 +226,13 @@ test('unknown transaction is not invented and network mismatch disables signing'
   expect(await page.evaluate(() => localStorage.getItem('orvexa.chain'))).toBe('e'.repeat(64));
   await otherTab.close();
 });
+
+test('sync state is explicit and lifts when the node catches up', async ({ page }) => {
+  // Peers advertise only authority-signed heads above the local height; fake one far ahead.
+  await page.route('**/v1/runtime', route => route.fulfill({ json: { enabled: true, transport: 'libp2p-tcp-noise', peer_id: '', listen_addresses: [], role: 'full', halted: false, produced_blocks: 0,
+    peers: [{ url: '/ip4/192.0.2.1/tcp/4243', state: 'connected', height: 999 }] } }));
+  await page.goto(`${origin}/#/dashboard`);
+  await expect(page.getByText('Syncing', { exact: true })).toBeVisible();
+  await page.unroute('**/v1/runtime');
+  await expect(page.getByText('Node connected', { exact: true })).toBeVisible({ timeout: 15000 });
+});

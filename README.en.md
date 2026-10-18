@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/assets/repository-banner.svg" alt="ORVEXA — Wallet, Explorer and your own node" width="100%"></p>
 
-<p align="center"><a href="https://waxiechc.github.io/orvexa/">Website</a> · <a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.2">Download Desktop</a> · <a href="docs/DESKTOP_APP.md">Desktop guide</a> · <a href="docs/PLATFORM_PLAN.md">Roadmap</a> · <a href="README.md">Русский</a></p>
+<p align="center"><a href="https://waxiechc.github.io/orvexa/">Website</a> · <a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.4">Download Desktop</a> · <a href="docs/DESKTOP_APP.md">Desktop guide</a> · <a href="docs/PLATFORM_PLAN.md">Roadmap</a> · <a href="README.md">Русский</a></p>
 
 ORVEXA is a Rust cryptocurrency research project with a working Windows desktop
 app, local wallet, block explorer and native P2P full node.
@@ -17,10 +17,11 @@ cosmetic switch. Read the [privacy design](docs/PRIVACY_DESIGN.md) and
 
 ## Get the app
 
-[**Download ORVEXA.exe — Windows x64**](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/ORVEXA.exe)
+[**Download ORVEXA.exe — Windows x64**](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA.exe)
 
-[Complete ZIP + instructions + notices](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/ORVEXA-Desktop-Windows-x64.zip)
-· [SHA-256 checksums](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/SHA256SUMS.txt)
+[Complete ZIP + instructions + notices](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA-Desktop-Windows-x64.zip)
+· [**ORVEXA for macOS 14+**](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA-macOS-universal.zip) ([how to open](docs/MACOS.md))
+· [SHA-256 checksums](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/SHA256SUMS.txt)
 
 1. Open the EXE. Microsoft WebView2 runtime is required; Rust, Node.js, Docker,
    VPN and a cloud account are not needed to run it.
