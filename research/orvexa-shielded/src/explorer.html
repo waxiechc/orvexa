@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>ORVEXA v2 — обозреватель</title>
+<style>
+:root{--obsidian:#050608;--navy:#101A27;--deep:#1B2B3D;--steel:#334B65;--slate:#526D89;--ice:#E6F2FF;--muted:#9AA9BA;--border:#253243;--surface:#0B121B;--line:#1A2533}
+*{box-sizing:border-box}body{margin:0;background:var(--obsidian);color:var(--ice);font:15px/1.55 "Inter","Segoe UI",-apple-system,BlinkMacSystemFont,sans-serif}
+main{max-width:1080px;margin:0 auto;padding:28px 16px 60px}h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}h2{font-size:18px;margin:32px 0 12px}
+p{color:var(--muted);margin:0}.note{margin-top:8px;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:22px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}.stat span{display:block;font-size:12.5px;color:var(--muted)}.stat b{font-size:22px;font-weight:600}
+form{display:flex;gap:8px;margin-top:22px}input{flex:1;min-width:0;background:var(--navy);border:1px solid var(--border);color:var(--ice);border-radius:12px;padding:12px 14px;font:13px "SF Mono",ui-monospace,Consolas,monospace}
+button{background:var(--ice);color:var(--navy);border:0;border-radius:12px;padding:0 18px;font-weight:600;cursor:pointer}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.row{display:grid;grid-template-columns:70px 1fr auto;gap:12px;padding:12px 16px;border-top:1px solid var(--line);align-items:center}.row:first-child{border-top:0}
+.h{font-weight:600}.mono{font:12.5px "SF Mono",ui-monospace,Consolas,monospace;color:var(--muted);overflow-wrap:anywhere}.right{color:var(--muted);font-size:13px;text-align:right}
+dl{display:grid;grid-template-columns:160px 1fr;gap:8px 14px;margin:0;padding:16px}dt{color:var(--muted);font-size:13px}dd{margin:0;overflow-wrap:anywhere}
+.err{color:#F3B4B4;margin-top:12px}
+@media(max-width:560px){dl{grid-template-columns:1fr}.row{grid-template-columns:52px 1fr}.right{grid-column:2;text-align:left}}
+</style>
+</head>
+<body>
+<main>
+<h1>Обозреватель ORVEXA v2</h1>
+<p>Тестовая приватная сеть. Данные берутся у этого узла, который сам проверил цепочку.</p>
+<p class="note">Суммы, адреса и балансы приватных платежей здесь не показываются: в цепочке их нет в открытом виде. Видны блоки, хеши, комиссии и подтверждения.</p>
+<div class="stats" id="stats"></div>
+<form id="search"><input id="q" placeholder="Хеш транзакции или высота блока" aria-label="Хеш транзакции или высота блока" autocomplete="off"><button>Найти</button></form>
+<div id="found"></div>
+<h2>Последние блоки</h2>
+<div class="card" id="blocks"></div>
+</main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const short = h => h.length > 20 ? h.slice(0, 10) + '…' + h.slice(-8) : h;
+const text = (tag, cls, value) => { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = value; return e; };
+const num = n => Number(n).toLocaleString('ru-RU');
+async function get(path) { const r = await fetch(path, { cache: 'no-store' }); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).code || r.status); return r.json(); }
+function stat(label, value) { const d = text('div', 'stat'); d.append(text('span', '', label), text('b', '', value)); return d; }
+function dl(pairs) { const l = document.createElement('dl'); for (const [k, v] of pairs) l.append(text('dt', '', k), text('dd', 'mono', v)); const c = text('div', 'card'); c.append(l); return c; }
+async function refresh() {
+  try {
+    const s = await get('/v2/status');
+    $('stats').replaceChildren(stat('Высота', '#' + num(s.height)), stat('Ожидают', num(s.mempool)), stat('Сожжённые комиссии', num(s.burned_fees)), stat('Роль узла', s.role === 'producer' ? 'производитель' : 'ведомый'));
+    const list = await get('/v2/blocks?limit=12');
+    $('blocks').replaceChildren(...list.map(b => { const r = text('div', 'row'); r.append(text('span', 'h', '#' + b.height), text('span', 'mono', short(b.id)), text('span', 'right', b.txids.length + ' тр. · ' + b.confirmations + ' подтв.')); return r; }));
+  } catch (e) { $('stats').replaceChildren(text('p', 'err', 'Узел недоступен')); }
+}
+$('search').addEventListener('submit', async ev => {
+  ev.preventDefault(); const q = $('q').value.trim(); $('found').replaceChildren();
+  try {
+    if (/^\d+$/.test(q)) { const b = await get('/v2/blocks/' + q); $('found').append(text('h2', '', 'Блок #' + b.height), dl([['Хеш', b.id], ['Предыдущий', b.prev], ['Подтверждения', String(b.confirmations)], ['Транзакции', b.txids.join('\n') || '—'], ['Actions', String(b.actions)], ['Комиссии', num(b.fees)]])); }
+    else { const t = await get('/v2/tx/' + q); $('found').append(text('h2', '', 'Транзакция'), dl([['Хеш', t.txid], ['Статус', t.height === null ? 'ожидает включения' : 'в блоке #' + t.height], ['Подтверждения', String(t.confirmations)], ['Комиссия', num(t.fee)], ['Actions', String(t.actions)], ['Размер', num(t.bytes) + ' байт'], ['Nullifiers', t.nullifiers.join('\n')]])); }
+  } catch (e) { $('found').append(text('p', 'err', e.message === 'not_found' ? 'Не найдено на этом узле' : 'Ошибка запроса: ' + e.message)); }
+});
+refresh(); setInterval(refresh, 3000);
+</script>
+</body>
+</html>

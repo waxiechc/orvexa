@@ -145,6 +145,20 @@ impl Store {
         &self.ledger
     }
 
+    /// Stored body of the block at `height` (≥ 1).
+    pub fn block(&self, height: u64) -> Result<Option<Block>, StoreError> {
+        let body: Option<Vec<u8>> = self
+            .conn
+            .query_row("SELECT body FROM blocks WHERE height = ?1", [height as i64], |r| r.get(0))
+            .optional()?;
+        body.map(|b| Block::decode(&b).ok_or(StoreError::Corrupt("block body"))).transpose()
+    }
+
+    /// The genesis envelope this store was created with.
+    pub fn genesis_tx(&self) -> Result<Vec<u8>, StoreError> {
+        meta(&self.conn, "genesis")
+    }
+
     #[doc(hidden)]
     pub fn inject_fault(&mut self, fault: Fault) {
         self.fault = Some(fault);
