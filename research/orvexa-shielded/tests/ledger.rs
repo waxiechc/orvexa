@@ -407,7 +407,8 @@ fn p3_07_genesis_rules() {
 #[test]
 fn p3_12_block_with_one_bad_tx_applies_nothing() {
     let mut n = net();
-    let good = n.pay(&n.a, n.b.address, 1_000);
+    // Distinct notes, so the only fault in the block is the bad signature.
+    let good = n.spend_note(100_000, n.b.address);
     let other_note = {
         let key = [n.a.spend_key()];
         let (note, path) = n.note(&n.a, 300_000);

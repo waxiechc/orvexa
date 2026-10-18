@@ -7,13 +7,15 @@
 //! (Ironwood v3 bundles, `PostNu6_3` circuit); nothing here re-implements a
 //! proof, a signature or a commitment.
 //!
-//! Not in scope: networking, mempool, block authorship/consensus, persistent
-//! storage, RPC. This crate never touches the transparent v1 protocol.
+//! `store` keeps that state durably in SQLite with atomic block commits.
+//!
+//! Not in scope: networking, mempool, block authorship/consensus, RPC. This crate never touches the transparent v1 protocol.
 
 pub mod envelope;
 pub mod keys;
 pub mod ledger;
+pub mod store;
 pub mod wallet;
 
 pub use envelope::{Envelope, EnvelopeError};
-pub use ledger::{Block, Ledger, LedgerError, Params};
+pub use ledger::{Block, Ledger, LedgerError, Params, ProofCheck, Validated};

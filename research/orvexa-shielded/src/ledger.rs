@@ -6,7 +6,7 @@
 
 use crate::envelope::{self, Envelope, EnvelopeError, SUITE_IRONWOOD_V3, VERSION};
 use crate::keys;
-use incrementalmerkletree::{Hashable, Level, Position, Retention};
+use incrementalmerkletree::{frontier::Frontier, Hashable, Level, Position, Retention};
 use orchard::{
     bundle::{Authorization, BatchValidator, Flags, TxVersion},
     tree::{MerkleHashOrchard, MerklePath},
@@ -72,6 +72,42 @@ impl From<EnvelopeError> for LedgerError {
     }
 }
 
+impl Block {
+    /// height u64 · prev 32 · tx count u32 · (length u32 · envelope)…
+    pub fn encode(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&self.height.to_le_bytes());
+        out.extend_from_slice(&self.prev);
+        out.extend_from_slice(&(self.txs.len() as u32).to_le_bytes());
+        for tx in &self.txs {
+            out.extend_from_slice(&(tx.len() as u32).to_le_bytes());
+            out.extend_from_slice(tx);
+        }
+        out
+    }
+
+    pub fn decode(bytes: &[u8]) -> Option<Self> {
+        let take = |b: &mut &[u8], n: usize| -> Option<Vec<u8>> {
+            if b.len() < n {
+                return None;
+            }
+            let (head, rest) = b.split_at(n);
+            *b = rest;
+            Some(head.to_vec())
+        };
+        let mut b = bytes;
+        let height = u64::from_le_bytes(take(&mut b, 8)?.try_into().ok()?);
+        let prev = take(&mut b, 32)?.try_into().ok()?;
+        let count = u32::from_le_bytes(take(&mut b, 4)?.try_into().ok()?) as usize;
+        let mut txs = Vec::with_capacity(count.min(1024));
+        for _ in 0..count {
+            let len = u32::from_le_bytes(take(&mut b, 4)?.try_into().ok()?) as usize;
+            txs.push(take(&mut b, len)?);
+        }
+        b.is_empty().then_some(Block { height, prev, txs })
+    }
+}
+
 pub fn empty_anchor() -> Anchor {
     MerkleHashOrchard::empty_root(Level::from(32)).into()
 }
@@ -108,21 +144,47 @@ pub fn block_id(chain_id: &[u8; 32], block: &Block) -> [u8; 32] {
 
 type Tree = ShardTree<MemoryShardStore<MerkleHashOrchard, u32>, 32, 16>;
 
+/// Whether [`Ledger::validate_block`] runs the batch proof/signature check.
+/// `Skip` is only for re-reading blocks this node already verified and stored
+/// (their bytes are still bound by the recomputed block-ID chain).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProofCheck {
+    Verify,
+    Skip,
+}
+
+/// A block that passed every rule, with all of its effects precomputed.
+/// Applying it cannot fail; storing it first makes the transition atomic.
+pub struct Validated {
+    pub height: u64,
+    pub id: [u8; 32],
+    pub block: Block,
+    pub envs: Vec<Envelope>,
+    pub fees: u64,
+    /// Tree root after this block.
+    pub root: [u8; 32],
+}
+
+impl Validated {
+    pub fn nullifiers(&self) -> impl Iterator<Item = [u8; 32]> + '_ {
+        self.envs.iter().flat_map(|e| e.nullifiers())
+    }
+    pub fn commitments(&self) -> impl Iterator<Item = [u8; 32]> + '_ {
+        self.envs.iter().flat_map(|e| e.bundle.actions().iter().map(|a| a.cmx().to_bytes()))
+    }
+}
+
 pub struct Ledger {
     params: Params,
     chain_id: [u8; 32],
     height: u64,
     tip: [u8; 32],
     tree: Tree,
+    frontier: Frontier<MerkleHashOrchard, 32>,
     leaves: u64,
     roots: VecDeque<[u8; 32]>,
     nullifiers: HashSet<[u8; 32]>,
     burned: u64,
-}
-
-/// Effects of one validated transaction, applied only after the whole block passes.
-struct Accepted {
-    env: Envelope,
 }
 
 impl Ledger {
@@ -153,7 +215,13 @@ impl Ledger {
 
         let genesis = Block { height: 0, prev: [0; 32], txs: vec![genesis_tx.to_vec()] };
         let tip = block_id(&env.chain_id, &genesis);
+        let mut frontier = Frontier::<MerkleHashOrchard, 32>::empty();
+        for action in env.bundle.actions() {
+            frontier.append(MerkleHashOrchard::from_cmx(action.cmx()));
+        }
+        let root = frontier.root().to_bytes();
         let mut ledger = Ledger {
+            frontier: Frontier::empty(),
             chain_id: env.chain_id,
             tree: ShardTree::new(MemoryShardStore::empty(), params.anchor_window as usize + 1),
             params,
@@ -166,7 +234,7 @@ impl Ledger {
         };
         // Genesis spends nothing; its dummy-spend nullifiers are still recorded
         // so that no published nullifier can ever repeat.
-        ledger.commit(0, tip, vec![Accepted { env }], 0)?;
+        ledger.commit(Validated { height: 0, id: tip, block: genesis, envs: vec![env], fees: 0, root });
         Ok(ledger)
     }
 
@@ -180,6 +248,14 @@ impl Ledger {
     }
 
     pub fn apply_block(&mut self, block: &Block) -> Result<[u8; 32], LedgerError> {
+        let validated = self.validate_block(block, ProofCheck::Verify)?;
+        let id = validated.id;
+        self.commit(validated);
+        Ok(id)
+    }
+
+    /// Runs every rule for `block` against the current state without changing it.
+    pub fn validate_block(&self, block: &Block, proofs: ProofCheck) -> Result<Validated, LedgerError> {
         if block.height != self.height + 1 {
             return Err(LedgerError::WrongHeight);
         }
@@ -188,7 +264,7 @@ impl Ledger {
         }
         let mut seen = HashSet::new();
         let mut fees: u64 = 0;
-        let mut accepted = Vec::with_capacity(block.txs.len());
+        let mut envs = Vec::with_capacity(block.txs.len());
         for tx in &block.txs {
             let env = Envelope::decode(tx)?;
             self.check_ordinary(&env, block.height)?;
@@ -201,19 +277,36 @@ impl Ledger {
                 }
             }
             fees = fees.checked_add(env.fee).ok_or(LedgerError::FeeExceedsRemainingSupply)?;
-            accepted.push(Accepted { env });
+            envs.push(env);
         }
         if fees > self.remaining_supply() {
             return Err(LedgerError::FeeExceedsRemainingSupply);
         }
-        // Most expensive check last, once per block.
-        let items: Vec<_> = accepted.iter().map(|a| (&a.env, a.env.sighash())).collect();
-        if !items.is_empty() && !batch_valid(&items) {
-            return Err(LedgerError::Authorization);
+        let new_leaves: u64 = envs.iter().map(|e| e.bundle.actions().len() as u64).sum();
+        if self.leaves + new_leaves > 1u64 << 32 || u32::try_from(block.height).is_err() {
+            return Err(LedgerError::TreeFull);
         }
-        let id = block_id(&self.chain_id, block);
-        self.commit(block.height, id, accepted, fees)?;
-        Ok(id)
+        // Most expensive check last, once per block.
+        if proofs == ProofCheck::Verify {
+            let items: Vec<_> = envs.iter().map(|e| (e, e.sighash())).collect();
+            if !items.is_empty() && !batch_valid(&items) {
+                return Err(LedgerError::Authorization);
+            }
+        }
+        let mut frontier = self.frontier.clone();
+        for env in &envs {
+            for action in env.bundle.actions() {
+                frontier.append(MerkleHashOrchard::from_cmx(action.cmx()));
+            }
+        }
+        Ok(Validated {
+            height: block.height,
+            id: block_id(&self.chain_id, block),
+            block: block.clone(),
+            envs,
+            fees,
+            root: frontier.root().to_bytes(),
+        })
     }
 
     fn check_ordinary(&self, env: &Envelope, height: u64) -> Result<(), LedgerError> {
@@ -246,34 +339,40 @@ impl Ledger {
         Ok(())
     }
 
-    fn commit(&mut self, height: u64, id: [u8; 32], txs: Vec<Accepted>, fees: u64) -> Result<(), LedgerError> {
-        let new_leaves: u64 = txs.iter().map(|a| a.env.bundle.actions().len() as u64).sum();
-        if self.leaves + new_leaves > 1u64 << 32 {
-            return Err(LedgerError::TreeFull);
-        }
-        // Nothing below can fail for a validated block.
-        for a in &txs {
-            for action in a.env.bundle.actions() {
+    /// Applies a validated block. Infallible: every check already ran.
+    pub fn commit(&mut self, v: Validated) {
+        let mut added = 0;
+        for env in &v.envs {
+            for action in env.bundle.actions() {
+                let leaf = MerkleHashOrchard::from_cmx(action.cmx());
                 // Prototype: every leaf is marked so test wallets can obtain witnesses.
                 // A node only needs the frontier; wallets track their own notes.
-                self.tree
-                    .append(MerkleHashOrchard::from_cmx(action.cmx()), Retention::Marked)
-                    .expect("capacity checked");
+                self.tree.append(leaf, Retention::Marked).expect("capacity checked");
+                self.frontier.append(leaf);
                 self.nullifiers.insert(action.nullifier().to_bytes());
+                added += 1;
             }
         }
-        let checkpoint = u32::try_from(height).map_err(|_| LedgerError::TreeFull)?;
+        let checkpoint = v.height as u32;
         self.tree.checkpoint(checkpoint).expect("heights strictly increase");
-        let root = self.tree.root_at_checkpoint_id(&checkpoint).expect("checkpoint exists").expect("non-empty");
-        self.roots.push_back(root.to_bytes());
+        debug_assert_eq!(
+            self.tree.root_at_checkpoint_id(&checkpoint).unwrap().unwrap().to_bytes(),
+            v.root,
+            "frontier and tree agree"
+        );
+        self.roots.push_back(v.root);
         while self.roots.len() > self.params.anchor_window as usize {
             self.roots.pop_front();
         }
-        self.leaves += new_leaves;
-        self.burned += fees;
-        self.height = height;
-        self.tip = id;
-        Ok(())
+        self.leaves += added;
+        self.burned += v.fees;
+        self.height = v.height;
+        self.tip = v.id;
+    }
+
+    /// Roots currently accepted as anchors, oldest first.
+    pub fn recent_roots(&self) -> impl Iterator<Item = &[u8; 32]> {
+        self.roots.iter()
     }
 
     pub fn chain_id(&self) -> [u8; 32] {
@@ -296,6 +395,9 @@ impl Ledger {
     }
     pub fn params(&self) -> &Params {
         &self.params
+    }
+    pub fn nullifier_set(&self) -> impl Iterator<Item = &[u8; 32]> {
+        self.nullifiers.iter()
     }
     pub fn is_spent(&self, nullifier: &[u8; 32]) -> bool {
         self.nullifiers.contains(nullifier)

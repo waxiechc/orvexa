@@ -18,6 +18,7 @@ nonempty = { version = "0.11", default-features = false }
 rand = { version = "0.10", features = ["std", "sys_rng"] }
 sha2 = "0.10.9"
 subtle = "2.6"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
 
 # Proving is ~10x slower unoptimized; tests build dependencies with optimizations.
 [profile.dev.package."*"]
