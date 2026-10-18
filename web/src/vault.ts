@@ -34,6 +34,7 @@ export function downloadWallet(wallet: Wallet) {
   const blob = new Blob([wallet.encrypted], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
-  anchor.href = url; anchor.download = `orvexa-${wallet.name.replace(/[^a-z0-9-]/gi, '-').slice(0, 30)}.wallet.json`;
-  anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+  anchor.href = url; anchor.download = `orvexa-${wallet.name.replace(/[^\p{L}\p{N}-]/gu, '-').slice(0, 30)}.wallet.json`;
+  document.body.append(anchor); anchor.click(); anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }

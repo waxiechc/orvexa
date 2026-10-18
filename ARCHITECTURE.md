@@ -1,147 +1,140 @@
-# ORVEXA: architecture decision record 001
+# ORVEXA: архитектура
 
-Status: experimental transparent local devnet. PRIVATE BY DESIGN is a target,
-not a description of this version. No real funds. No public deployment.
+[English](ARCHITECTURE.en.md). Статус: экспериментальная прозрачная тестовая v1,
+без независимого аудита и реальных средств. ORVEXA — предварительное название.
+Цель приватности не является свойством действующего реестра.
 
-ORVEXA is a provisional working name pending trademark, domain and cryptocurrency
-project checks. The workspace and binaries use `orvexa-*`. The rebrand preserves
-all v1 wire/storage encodings, address strings, signing bytes and economics;
-legacy `VOID/...` domains and `void_test_` addresses are protocol identifiers.
-See [the rename inventory and compatibility checks](docs/RENAME_ORVEXA.md).
+Переименование и локализация сохраняют подписи, адреса, данные SQLite, комиссии
+и предложение v1. Домены `VOID/...` и адреса `void_test_` остаются протокольными
+идентификаторами. [Проверки совместимости](docs/RENAME_ORVEXA.md).
 
-## Proposed privacy architecture (not activated)
+## Граница будущей приватности
 
-Optional native P2P is implemented in `orvexa-node::p2p`: pinned libp2p 0.56.0,
-TCP/Noise/Yamux, bounded request/response and identify. No hosted discovery,
-VPN or shared token. Separate persistent PeerId, numeric pinned seeds,
-authority-signed height claims, append-only verified sync and durable conflict
-quarantine. Local wallet API remains loopback-only. See [protocol boundary](docs/P2P_DESIGN.md)
-and [operator instructions](docs/NATIVE_P2P.md). Public deployment still requires
-actual reachable volunteer nodes; sole authority consensus and public v1 ledger
-are unchanged. No automatic promotion, mining or node rewards.
+[PRIVACY_DESIGN.md](docs/PRIVACY_DESIGN.md), редакция 2, сравнивает Monero
+RingCT/CLSAG и Orchard/Ironwood для кошельков, переводов и обозревателя. Условная
+рекомендация — отдельный shielded-note реестр, после проверки точной upstream
+версии, лицензий, аудита и затрат. Orchard 0.16.0 / Ironwood-v3 — кандидат для
+оценки, не принятая зависимость. P1 оценивает upstream в отдельном workspace;
+адаптер, состояние, кошелёк, сеть и Explorer проходят отдельные этапы P2–P6.
+Предыдущий план немедленно внедрять адаптер в этот workspace отменён.
 
-[PRIVACY_DESIGN.md](docs/PRIVACY_DESIGN.md), revision 2, compares Monero
-RingCT/CLSAG with Orchard/Ironwood for a wallet, transfers and Explorer.
-It recommends a separate shielded-note v2 test network, subject to review of the
-exact upstream version, audit coverage and resource costs. Orchard 0.16.0 in
-Ironwood-v3 mode is an evaluation candidate, not an accepted dependency.
-P1 is now upstream evaluation in a separate workspace; the ORVEXA format/adapter,
-state, wallet, network and Explorer follow through separate gates P2–P6.
-The earlier proposal to start with an adapter in this workspace is superseded.
+Реестр v1 остаётся доступным. Каждый баланс восстанавливается из публичной
+genesis и переводов; удаление balance API это не исправит. Скрытый реестр
+требует новых правил владения, доказательств, nullifier/key image, сканирования
+и восстановления, а не замены одного типа подписи. [Матрица тестов](docs/PRIVACY_TEST_PLAN.md).
 
-The existing account ledger, Ed25519 v1 encodings, fees/supply, database schema,
-API and demonstration remain intact. A new ledger is necessary because every v1
-balance is reconstructible from its public genesis and transaction history.
-See [the test matrix](docs/PRIVACY_TEST_PLAN.md) for the distinction between
-existing v1 coverage and planned private-protocol tests.
+## Консенсус
 
-## Consensus choice (recorded before implementation)
-
-| Candidate | Benefit | Cost / trust assumption |
+| Вариант | Преимущество | Цена и доверие |
 | --- | --- | --- |
-| Nakamoto PoW | Open validator participation; objective cumulative work | Energy, difficulty adjustment, fork choice and reorg implementation; a tiny network is easily attacked |
-| PoS / BFT | Fast finality with a defined validator set | Stake bootstrap, validator membership, slashing, quorum and network assumptions; substantial attack surface |
-| Signed single sequencer | Small deterministic validation surface; no mining hardware | One explicitly configured authority can censor, halt or equivocate; no decentralized consensus |
+| Nakamoto PoW | Открытое участие, накопленная работа | Энергия, сложность, fork choice и реорганизации; маленькую сеть легко атаковать |
+| PoS / BFT | Быстрая финальность с определёнными валидаторами | Начальное распределение stake, допуск, slashing, кворум и сетевые предположения |
+| Один подписывающий sequencer | Небольшая детерминированная проверка без майнинга | Один authority может цензурировать, остановить сеть или подписать разные истории |
 
-Decision: manual, Ed25519-signed single sequencer for **local testing only**.
-Genesis fixes its public address. Every node independently checks all rules.
-The authority cannot spend other wallets' coins or mint after genesis, but can
-sign conflicting histories. Nodes only append to their current tip; divergent
-forks are rejected, never silently replaced. There is no fork choice or Byzantine
-finality. The word `produce` means signing a test block, not proof-of-work mining.
-Sources: [Bitcoin paper](https://bitcoin.org/bitcoin.pdf),
-[Tendermint consensus specification](https://github.com/tendermint/tendermint/blob/main/spec/consensus/consensus.md).
+Действует последний вариант, **только для тестов**. Genesis закрепляет адрес
+Ed25519 authority. Узлы независимо проверяют правила. Authority не может
+тратить чужие средства или выпускать монеты после genesis, но может подписать
+конфликтующие истории. Узлы дописывают только к своему tip, не выбирают новую
+ветку автоматически. Число подтверждений не является византийской финальностью.
+`produce` означает подпись тестового блока, а не PoW.
 
-## Modules
+Источники: [Bitcoin](https://bitcoin.org/bitcoin.pdf),
+[спецификация Tendermint](https://github.com/tendermint/tendermint/blob/main/spec/consensus/consensus.md).
 
-- orvexa-crypto: SHA-256, strict Ed25519 verification, checksummed test addresses,
-  OS randomness; no custom cryptographic algorithms.
-- orvexa-core: consensus data, canonical signing bytes, account state transitions,
-  nonce replay prevention and supply invariants. No I/O.
-- orvexa-wallet: encrypted key files and local transaction/block signing.
-- orvexa-rpc: typed loopback HTTP JSON API and bounded client.
-- orvexa-node: SQLite block journal, complete replay validation, pending pool,
-  HTTP server and explicit peer synchronization.
-- orvexa-cli: wallet, genesis, transfer, production, history and synchronization.
-- orvexa-tests: cryptographic, ledger, persistence and real HTTP integration tests.
-- orvexa-web-wallet: browser Wasm adapter reusing native encrypted v1 wallets
-  and canonical signing; no new primitives or private backend.
-- web/: English React/TypeScript Wallet/Explorer, exact-integer v1 adapter,
-  encrypted browser storage and short-lived signing workers.
+## Модули
 
-The optional `--web-dir` host serves built assets on the numeric loopback origin
-with exact Host/Origin checks and CSP. Default CLI mode still rejects browser
-Origins. Only signed public payloads are posted; no password/key endpoints exist.
-`/v1/ui-state` reads a coherent state under one lock. `start-local.ps1` manages
-three local processes with pull replication. See [workflow](docs/WEB_WALLET.md).
+| Модуль | Назначение |
+| --- | --- |
+| orvexa-crypto | SHA-256, строгая Ed25519, адреса с checksum, случайность ОС; без собственных примитивов |
+| orvexa-core | Канонические байты и структуры, переходы состояния, nonce, сохранение предложения; без I/O |
+| orvexa-wallet | Зашифрованные файлы и локальная подпись переводов/блоков |
+| orvexa-rpc | Типизированный loopback HTTP JSON API и клиент с ограничениями |
+| orvexa-node | Журнал SQLite, полная проверка replay, mempool, HTTP, opt-in mesh/P2P |
+| orvexa-cli | Кошельки, genesis, переводы, создание блоков, история и синхронизация |
+| orvexa-tests | Криптография, реестр, хранение и настоящие HTTP/P2P тесты |
+| orvexa-web-wallet | Wasm над тем же native wallet/core, без нового приватного backend |
+| orvexa-desktop | Нативное окно, встроенные ассеты, локальный контроллер и фоновой full node |
+| web/ | React/TypeScript, RU/EN, точные целые, зашифрованное хранилище и временные workers подписи |
 
-## Temporary economics
+`--web-dir` включает host на числовом loopback origin с точными Host/Origin и
+CSP. Обычный CLI API отвергает браузерные Origin. Узел получает только
+подписанные публичные данные, не пароли/ключи. `/v1/ui-state` читает состояние
+под одной блокировкой. `start-local.ps1` управляет тремя отдельными локальными
+процессами с pull-репликацией. [Сценарий](docs/WEB_WALLET.md).
 
-All amounts are integer **test atoms**, with no exchange rate or promised value.
-Genesis v1 allocates exactly 1,000,000 atoms to one explicit test recipient. No
-subsidy, faucet, premine hidden in code, mutable supply configuration or admin
-balance endpoint exists. Minimum fee is 1 atom; fees are burned, not paid to the
-developer or authority. `sum(balances) + burned_fees == 1_000_000` at every commit.
+## Тестовая экономика
 
-Production alternatives remain undecided: capped issuance with a declining block
-subsidy (eventual fee security), perpetual tail emission (persistent security
-budget and dilution), or fully distributed genesis (allocation/bootstrap trust).
-Economic modelling and consensus selection must precede a public specification.
+Суммы — целые тестовые атомы без обещанной стоимости или обменного курса.
+Genesis распределяет ровно 1 000 000 атомов одному явному получателю. Нет
+субсидии, крана, скрытой эмиссии, изменяемого runtime-предложения или admin
+balance endpoint. Минимальная комиссия — 1 атом; она сжигается, а не платится
+разработчику или authority. На каждом commit:
 
-## Wire format and state
+```text
+sum(balances) + burned_fees == 1_000_000
+```
 
-JSON is transport/storage only. SHA-256 hashes and signatures use domain-separated
-fixed-width bytes: version u32 LE; unsigned integers u64 LE; hashes/keys 32 raw
-bytes. Genesis includes a random 32-byte network salt, authority, allocation
-recipient and fixed supply. Its canonical digest is the chain ID and genesis tip.
-Transactions bind version, chain ID, sender key, recipient key, amount, fee and
-nonce; tx ID additionally binds the 64-byte signature. Block headers bind version,
-chain ID, height, parent, strictly increasing logical timestamp and a SHA-256
-commitment to the ordered transaction IDs and u64 count. Block IDs bind the signed
-header plus authority signature. Signatures never depend on JSON key order.
+Экономика будущей сети не выбрана: ограниченная эмиссия с убывающей субсидией,
+постоянная tail emission или полное начальное распределение имеют разные
+риски бюджета безопасности, размывания и доверия. Нужны моделирование и
+согласование консенсуса до публичной спецификации.
 
-Addresses are `void_test_` + lowercase Ed25519 public key hex + first 4 bytes of
-SHA-256(`VOID/address/v1` || public key). Weak public keys, bad checksums and
-noncanonical encodings are rejected. Account nonce starts at 0 and must match
-exactly. Positive transfers, checked arithmetic, minimum fees, valid signatures,
-correct network/version, at most 128 transactions/block and exact parent/height
-are mandatory. Self-transfers are allowed and only burn the fee.
+## Формат и состояние
 
-SQLite stores immutable genesis and ordered signed blocks, not a trusted balance
-snapshot. Startup replays and verifies every block. A write commits to SQLite
-before memory changes. Full synchronous rollback journaling and an exclusive
-database lock prevent two processes sharing a database. Pending transactions
-are volatile (maximum 512); they are validated against an ordered projection of
-the pending pool and revalidated after every accepted block. RPC balance is the
-confirmed balance; pending nonce is reported separately.
+JSON используется для транспорта и хранения. Хеши/подписи используют разделённые
+домены и фиксированные байты: version u32 LE, целые u64 LE, хеши/ключи 32 байта.
+Genesis включает 32-байтовую случайную соль сети, authority, получателя и
+фиксированное предложение. Канонический digest — chain ID и начальный tip.
 
-## Networking and future services
+Подпись перевода связывает version, chain ID, ключи отправителя/получателя,
+сумму, комиссию и nonce. Tx ID дополнительно включает 64-байтовую подпись.
+Заголовок блока связывает version, chain ID, высоту, родителя, строго растущий
+логический timestamp и SHA-256 commitment упорядоченных tx ID с количеством
+u64. Block ID включает подписанный заголовок и подпись authority. Порядок
+ключей JSON не влияет на подписи.
 
-Default CLI and browser APIs permit only numeric loopback HTTP endpoints, with no proxies/redirects,
-timeouts and bounded request/response sizes. No public listener, discovery,
-telemetry, TLS, background gossip or anonymity transport exists. `sync --peer`
-explicitly pulls a bounded block suffix and pending transactions; each is locally
-verified. This supports controlled local devnets, not an adversarial P2P network.
-Re-run manual sync to catch changes after its initial peer snapshot.
+Адрес: `void_test_` + lowercase hex Ed25519 public key + первые 4 байта
+SHA-256(`VOID/address/v1` || public key). Слабые ключи, неправильный checksum и
+неканонические записи отклоняются. Nonce начинается с 0 и должен совпасть
+точно. Обязательны положительная сумма, checked arithmetic, минимальная
+комиссия, правильные подпись/сеть/версия/родитель/высота; максимум 128 tx/block.
+Перевод себе допустим, сжигается только комиссия.
 
-An **opt-in friends testnet profile** now adds a separate read-only peer listener
-bound to an explicitly assigned Tailscale IP (`100.64.0.0/10` or
-`fd7a:115c:a1e0::/48`; loopback also allowed for process tests). It requires a
-shared 256-bit access credential, a pinned chain ID, a live encrypted VPN and up
-to eight explicit peers. It has no wallet/signing/static-file or mutation routes.
-No public/wildcard/LAN listeners or arbitrary remote DNS/URLs are enabled.
-Browsers continue using each machine's local UI. Automatic pull sync validates
-prefixes, bounded block pages and pending data; invalid data cannot mint funds.
-An optional separate unfunded authority key signs nonempty blocks on a schedule.
-No authority is elected and no Byzantine finality or failover is introduced.
-Observed conflicting authority signatures are saved outside the unchanged v1
-SQLite schema; operational quarantine survives restart and selects no fork.
-The authority database/key must not be cloned/reverted. This profile is a private
-cross-computer test, not the public-network consensus or privacy-v2 stage.
-See [setup and limits](docs/FRIENDS_TESTNET.md).
+SQLite хранит неизменяемую genesis и упорядоченные подписанные блоки, не
+доверенный снимок балансов. Запуск полностью проверяет replay. Диск коммитится
+до изменения памяти. Синхронный rollback journal и исключительная блокировка
+не дают двум процессам использовать одну базу. Mempool временный, до 512 tx;
+он проверяется в порядке поступления и перепроверяется после блока. RPC balance
+подтверждённый; pending nonce передаётся отдельно.
 
-The v1 Wallet/Explorer now consumes this API without changing ledger or consensus.
-A future private ledger needs a separate adapter; transparent address lookup
-must not become private wallet scanning. Pay, Names, SDK and Gateway remain
-future work. Names need a threat model; payment links must bind network/address/
-amount. The current receive QR is a raw v1 address and is labelled accordingly.
+## Сеть и Desktop
+
+Обычные CLI/UI API — только числовой loopback, без proxy/redirect; размеры и
+время клиента ограничены. `sync --peer` явно получает ограниченные страницы
+блоков и ожидающие транзакции с локальной проверкой. Повторный sync нужен для
+изменений после начального снимка. Это отдельный режим от нативного P2P.
+
+Opt-in friends mesh использует отдельный read-only listener, явные Tailscale
+адреса (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`, loopback для тестов), 256-bit
+credential, chain pin, настоящий шифрованный VPN и до 8 peers. Публичных wallet
+RPC, DNS и мутаций на peer listener нет. Отдельный непополненный authority может
+подписывать непустые блоки по расписанию. Выборов и failover нет. Наблюдаемые
+конфликты сохраняются вне схемы v1 и включают постоянный карантин без выбора
+ветки. Базу/ключ authority нельзя клонировать или откатывать. [Инструкция](docs/FRIENDS_TESTNET.md).
+
+Нативный P2P: закреплённый libp2p 0.56.0, TCP/Noise/Yamux, identify и ограниченные
+сообщения, отдельный сохранённый PeerId, числовые адреса, закреплённая genesis,
+подписанные tip claims и append-only проверка. Не нужны VPN, общий token или
+внешний сервис обнаружения. Нет готовых публичных seeds. [Граница протокола](docs/P2P_DESIGN.md),
+[инструкция](docs/NATIVE_P2P.md). Authority и прозрачный реестр остаются прежними.
+
+Desktop управляет проверяющим full node через локальный контроллер, не выдаёт
+ему authority-ключ. Windows использует WebView2; macOS-код — WKWebView, постоянный
+идентификатор профиля и меню AppKit через Muda; требуется macOS 14+. На Mac
+нужна отдельная проверка. Интерфейс приостанавливает опрос в скрытом документе,
+но сетевые задачи продолжаются. [Подробнее](docs/MACOS.md).
+
+Для приватного реестра нужен отдельный адаптер: публичный поиск по адресу не
+может заменять сканирование notes. Pay, Names, SDK, Gateway — будущие этапы.
+Имена требуют модели угроз; платёжные ссылки должны связывать сеть/адрес/сумму.
+Текущий QR содержит только исходный адрес v1 и явно так подписан.

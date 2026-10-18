@@ -20,7 +20,7 @@ struct Args {
     web_dir: Option<PathBuf>,
     #[arg(long, default_value = "127.0.0.1:4252")]
     listen: SocketAddr,
-    /// Test/server mode. Normal Windows launch opens the native application.
+    /// Test/server mode. Windows/macOS launch opens the native application.
     #[arg(long)]
     headless: bool,
     /// Explicit local WebView automation only. Never enabled in normal launch.
@@ -35,7 +35,14 @@ fn default_data() -> Result<PathBuf> {
                 .join("ORVEXA"),
         )
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        Ok(
+            PathBuf::from(std::env::var_os("HOME").context("home directory is unavailable")?)
+                .join("Library/Application Support/ORVEXA"),
+        )
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let base = std::env::var_os("XDG_DATA_HOME")
             .map_or_else(
@@ -78,7 +85,7 @@ fn assets(data: &Path, explicit: Option<PathBuf>) -> Result<PathBuf> {
 }
 fn main() {
     if let Err(error) = run() {
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os = "macos"))]
         if !std::env::args().any(|a| a == "--headless") {
             native::error(&error.to_string());
         }
@@ -96,7 +103,13 @@ fn run() -> Result<()> {
     std::fs::create_dir_all(&data)?;
     let control = Controller::open(&data)?;
     let web = assets(&data, args.web_dir)?;
-    let runtime = tokio::runtime::Runtime::new()?;
+    // The embedded node is I/O driven. Do not allocate a worker per CPU core
+    // on high-core-count Macs/PCs while the app is idle.
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .max_blocking_threads(4)
+        .enable_all()
+        .build()?;
     let (origin, server) = runtime.block_on(async {
         let listener = tokio::net::TcpListener::bind(args.listen)
             .await
@@ -115,9 +128,9 @@ fn run() -> Result<()> {
             Ok::<_, anyhow::Error>(())
         })?;
     } else {
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os = "macos"))]
         native::window(&origin, &data, args.webview_debug_port, control, runtime)?;
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         anyhow::bail!(
             "native GUI is currently packaged for Windows; use --headless or the node CLI on this OS"
         );
@@ -125,20 +138,25 @@ fn run() -> Result<()> {
     Ok(())
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 mod native {
     use super::*;
     use std::sync::Arc;
+    #[cfg(windows)]
+    use tao::event_loop::EventLoop;
     use tao::{
         dpi::LogicalSize,
         event::{Event, WindowEvent},
-        event_loop::{ControlFlow, EventLoop},
+        event_loop::ControlFlow,
         window::{Theme, WindowBuilder},
     };
-    use wry::{WebContext, WebViewBuilder, WebViewBuilderExtWindows};
+    #[cfg(windows)]
+    use wry::WebViewBuilderExtWindows;
+    use wry::{WebContext, WebViewBuilder};
+    #[cfg(windows)]
     pub fn error(message: &str) {
         use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
-        let body:Vec<u16>=format!("ORVEXA could not start.\n\n{message}\n\nKeep your data. Check the app port, data directory and installed Microsoft WebView2 runtime.").encode_utf16().chain(Some(0)).collect();
+        let body:Vec<u16>=format!("Не удалось запустить ORVEXA.\n\n{message}\n\nСохраните данные. Проверьте порт, каталог данных и наличие Microsoft WebView2 runtime.").encode_utf16().chain(Some(0)).collect();
         let title: Vec<u16> = "ORVEXA".encode_utf16().chain(Some(0)).collect();
         // Valid NUL-terminated buffers live for the complete synchronous call.
         unsafe {
@@ -150,6 +168,62 @@ mod native {
             );
         }
     }
+    #[cfg(target_os = "macos")]
+    pub fn error(message: &str) {
+        let _ = std::process::Command::new("/usr/bin/osascript")
+            .args(["-e", "on run argv\ndisplay alert \"ORVEXA\" message (item 1 of argv) as critical\nend run", &format!("Не удалось запустить ORVEXA. Сохраните данные.\n\n{message}")])
+            .status();
+    }
+    #[cfg(target_os = "macos")]
+    enum AppEvent {
+        Quit,
+    }
+    #[cfg(target_os = "macos")]
+    fn mac_menu(proxy: tao::event_loop::EventLoopProxy<AppEvent>) -> Result<muda::Menu> {
+        use muda::{
+            Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu,
+            accelerator::{Accelerator, Code, Modifiers},
+        };
+        let menu = Menu::new();
+        let quit = MenuItem::with_id(
+            "quit",
+            "Завершить ORVEXA",
+            true,
+            Some(Accelerator::new(Some(Modifiers::SUPER), Code::KeyQ)),
+        );
+        let app = Submenu::with_items(
+            "ORVEXA",
+            true,
+            &[
+                &PredefinedMenuItem::hide(Some("Скрыть ORVEXA")),
+                &PredefinedMenuItem::hide_others(Some("Скрыть остальные")),
+                &PredefinedMenuItem::show_all(Some("Показать все")),
+                &PredefinedMenuItem::separator(),
+                &quit,
+            ],
+        )?;
+        let edit = Submenu::with_items(
+            "Правка",
+            true,
+            &[
+                &PredefinedMenuItem::undo(Some("Отменить")),
+                &PredefinedMenuItem::redo(Some("Повторить")),
+                &PredefinedMenuItem::separator(),
+                &PredefinedMenuItem::cut(Some("Вырезать")),
+                &PredefinedMenuItem::copy(Some("Копировать")),
+                &PredefinedMenuItem::paste(Some("Вставить")),
+                &PredefinedMenuItem::select_all(Some("Выбрать всё")),
+            ],
+        )?;
+        menu.append_items(&[&app, &edit])?;
+        menu.init_for_nsapp();
+        MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+            if event.id.as_ref() == "quit" {
+                let _ = proxy.send_event(AppEvent::Quit);
+            }
+        }));
+        Ok(menu)
+    }
     pub fn window(
         origin: &str,
         data: &Path,
@@ -157,7 +231,26 @@ mod native {
         control: Arc<Controller>,
         runtime: tokio::runtime::Runtime,
     ) -> Result<()> {
+        #[cfg(windows)]
         let event_loop = EventLoop::new();
+        #[cfg(target_os = "macos")]
+        let event_loop = {
+            let version = std::process::Command::new("/usr/bin/sw_vers")
+                .arg("-productVersion")
+                .output()?;
+            let major = String::from_utf8(version.stdout)?
+                .split('.')
+                .next()
+                .unwrap_or("")
+                .parse::<u32>()?;
+            ensure!(
+                major >= 14,
+                "ORVEXA native GUI requires macOS 14 or newer for isolated persistent wallet storage"
+            );
+            tao::event_loop::EventLoopBuilder::<AppEvent>::with_user_event().build()
+        };
+        #[cfg(target_os = "macos")]
+        let menu = mac_menu(event_loop.create_proxy())?;
         let window = WindowBuilder::new()
             .with_title("ORVEXA")
             .with_theme(Some(Theme::Dark))
@@ -166,30 +259,66 @@ mod native {
             .build(&event_loop)?;
         let mut context = WebContext::new(Some(data.join("webview")));
         let allowed = format!("{origin}/");
+        let allowed_blob = format!("blob:{origin}/");
         let mut builder = WebViewBuilder::new_with_web_context(&mut context)
             .with_url(format!("{origin}/#/node"))
+            .with_background_color((5, 6, 8, 255))
             .with_devtools(false)
-            .with_navigation_handler(move |url| url.starts_with(&allowed));
+            .with_navigation_handler(move |url| {
+                url.starts_with(&allowed) || url.starts_with(&allowed_blob)
+            });
+        #[cfg(windows)]
         if let Some(port) = debug {
             ensure!(port >= 1024, "invalid debug port");
             builder = builder.with_additional_browser_args(format!(
                 "--remote-debugging-port={port} --remote-debugging-address=127.0.0.1"
             ));
         }
+        #[cfg(target_os = "macos")]
+        {
+            use wry::WebViewBuilderExtDarwin;
+            ensure!(
+                debug.is_none(),
+                "remote debug port is only supported on Windows"
+            );
+            let profile = data.canonicalize()?;
+            let hash = orvexa_crypto::hash(
+                b"ORVEXA/mac-web-profile/v1",
+                profile.to_string_lossy().as_bytes(),
+            );
+            let mut identifier = [0; 16];
+            identifier.copy_from_slice(&hash.0[..16]);
+            let download_origin = format!("blob:{origin}/");
+            let download_http_origin = format!("{origin}/");
+            builder = builder
+                .with_data_store_identifier(identifier)
+                .with_allow_link_preview(false)
+                // WKWebView downloads require an explicit upstream handler.
+                // The system Downloads directory and collision handling come
+                // from Wry; never send backup bytes through a wallet RPC.
+                .with_download_started_handler(move |url, _| {
+                    url.starts_with(&download_origin) || url.starts_with(&download_http_origin)
+                });
+        }
         let _view = builder
             .build(&window)
-            .context("create native window (Windows WebView2 runtime required)")?;
+            .context("create native window (Windows: WebView2, macOS: system WebKit)")?;
         event_loop.run(move |event, _, flow| {
             // Keep native view, profile and Tokio runtime alive for this window.
             let _ = (&_view, &context);
+            #[cfg(target_os = "macos")]
+            let _ = &menu;
             *flow = ControlFlow::Wait;
-            if matches!(
-                event,
+            let close = matches!(
+                &event,
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
                     ..
                 }
-            ) {
+            );
+            #[cfg(target_os = "macos")]
+            let close = close || matches!(&event, Event::UserEvent(AppEvent::Quit));
+            if close {
                 let _ = runtime.block_on(control.stop());
                 *flow = ControlFlow::Exit;
             }

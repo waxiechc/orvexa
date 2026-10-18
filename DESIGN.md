@@ -1,6 +1,6 @@
 ---
 name: ORVEXA Wallet, Explorer & Node
-description: English operating and release-download surfaces for the ORVEXA v1 preview.
+description: Russian-first operating and release-download surfaces with an English option for ORVEXA v1.
 colors:
   obsidian: "#050608"
   midnight-navy: "#101A27"
@@ -46,6 +46,12 @@ typography:
   site-headline:
     fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
     fontSize: "clamp(46px, 5.4vw, 76px)"
+    fontWeight: 500
+    lineHeight: 1.04
+    letterSpacing: "-0.038em"
+  site-headline-ru:
+    fontFamily: '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
+    fontSize: "clamp(36px, 4.1vw, 60px)"
     fontWeight: 500
     lineHeight: 1.04
     letterSpacing: "-0.038em"
@@ -144,6 +150,16 @@ components:
     textColor: "{colors.secondary-text}"
     rounded: "{rounded.badge}"
     padding: "1px 7px"
+  locale-picker:
+    backgroundColor: "{colors.midnight-navy}"
+    textColor: "{colors.ice-white}"
+    rounded: "{rounded.field}"
+    padding: "8px 5px"
+  file-picker:
+    backgroundColor: "#0E1925"
+    textColor: "{colors.secondary-text}"
+    rounded: "{rounded.field}"
+    padding: "9px"
 ---
 
 # Design System: ORVEXA Wallet, Explorer & Node
@@ -152,9 +168,10 @@ components:
 
 **Creative North Star: "ORVEXA local wallet workspace"**
 
-An English operating interface for testers creating wallets, transferring
-test atoms and running verifying nodes. A release-download site introduces the
-working desktop preview and its current network boundaries. The confirmed brief is premium,
+Russian is the default language, with an explicit English option. Testers create
+wallets, transfer test atoms and run verifying nodes. A release-download site
+introduces the working desktop preview and its current network boundaries. The
+confirmed brief is premium,
 restrained, technological and minimal: a cold navy field, clear system type,
 geometric identity, thin borders and space around important actions.
 
@@ -170,10 +187,13 @@ master. Preserve these geometries and proportions when extending the interface.
 - Visible connection, pending, confirmed, unavailable and empty states.
 - One visual language across Wallet, Explorer, Node controls and release downloads.
 - Actual application captures and explicit preview/planned labels on the site.
+- Presentation translation without rewriting names, addresses or protocol data.
 
 This records the built system in `web/src/tokens.css`, `web/src/styles.css` and
-`web/src/App.tsx`, including the `web/src/NodePanel.tsx` extension. The download
-site in `docs/index.html` and `docs/site.css` uses the same identity as a release
+`web/src/App.tsx`, including `web/src/NodePanel.tsx`, `web/src/FileInput.tsx` and
+the `web/src/i18n.ts` presentation layer. The Russian download site in
+`docs/index.html`, its English counterpart in `docs/en/index.html`, and shared
+`docs/site.css` use the same identity as a release
 journal: download action and preview boundary beside an actual native-app
 capture, followed by setup, network limitations and staged goals. Its five-block
 contract records the chosen structure and seed `215b7181`; this is a surface
@@ -220,6 +240,13 @@ its separate, larger headline and more open body roles; feature descriptions
 and notices remain compact. Do not convert ordinary labels to tracked
 uppercase decoration.
 
+The Russian release headline uses its own smaller role from the existing size
+ramp so Cyrillic copy fits the established split composition. Site captions,
+metadata, footer copy and Mac-instruction links use at least (12px); do not
+shrink translated copy to restore an English line break. The local font stack
+falls back to the operating system on macOS; no custom Mac face or new visual
+identity is introduced.
+
 ## Layout
 
 The desktop shell has fixed navigation (236px), a top bar (92px) and a main
@@ -249,6 +276,12 @@ gutters become (18px). The download action and transparent-preview explanation
 precede the image on mobile. This reading order belongs to the site, not to
 every operating screen.
 
+The top bar keeps a native RU/EN selector beside the wallet picker. The site
+links its two static language routes directly. Let longer translated headings,
+file names and notices wrap. On the narrowest site header (360px), the privacy
+anchor is hidden to retain room for brand and language navigation; the privacy
+section remains in the page.
+
 ## Elevation & Depth
 
 Depth comes from restrained tonal layers, translucent navy panels and one-pixel
@@ -263,6 +296,11 @@ apply that treatment to ordinary content or imply live telemetry. Motion consist
 the mobile drawer slide, a desktop balance reveal and the refresh spinner.
 `prefers-reduced-motion` disables transitions and animations. Exact shadow,
 gradient and motion values are preserved in the sidecar.
+
+Hidden documents pause UI polling and request fresh observations when visible
+again; this does not stop the native node. The desktop source uses a two-worker
+async runtime. These are implementation boundaries, not measured CPU, battery
+or performance claims. Actual macOS runtime behavior remains unverified.
 
 ## Shapes
 
@@ -291,6 +329,11 @@ Dark filled fields have a Slate Blue stroke, visible labels and a brighter
 focus stroke. Amounts are whole test atoms; password fields remain password
 inputs. Search uses one outlined enclosing surface and visible focus-within.
 Validation failures appear as icon-and-text notices, without relying on color.
+File inputs retain the real native chooser and keyboard semantics. A transparent
+native input covers a bordered field containing translated chooser/empty labels
+and the unchanged selected filename. Focus-within outlines the entire field;
+the visible duplicate labels are hidden from assistive technology.
+The chooser dialog itself retains the operating system's behavior and language.
 
 ### Navigation
 
@@ -298,6 +341,21 @@ Wallet routes and Explorer share the fixed sidebar and original brand lockup.
 Active routes use a navy fill, thin outline and small white dot; `aria-current`
 exposes selection. Mobile uses the keyboard-managed drawer described above.
 A skip link leads directly to the main content.
+
+### Language and Presentation
+
+Russian is the initial application locale; the explicit RU/EN selection updates
+the document language and persists when browser storage is available. Translate
+route names, states, forms, help, errors and accessible labels at presentation.
+Keep canonical errors and backup addresses in state so switching language does
+not require retrying an operation or repeat translation. Wallet names, filenames,
+addresses, hashes, keys and serialized transactions remain unchanged.
+
+Whole-atom amounts are formatted from BigInt with the selected locale; do not
+pass them through floating-point conversion. Localization changes display
+grouping, not the signed value or API representation. The site provides Russian
+at the root and English under `en/`, with language links and correct document
+language. It keeps the same release-journal structure in both languages.
 
 ### Cards / Containers
 
@@ -308,7 +366,8 @@ Ice White square and encode the selected wallet's real address.
 
 ### Transaction and Network States
 
-Pending and Confirmed badges use words and distinct icons in muted blue tones.
+Pending/Ожидает and Confirmed/Подтверждено badges use words and distinct icons
+in muted blue tones.
 Confirmed means accepted block inclusion by the connected authority chain;
 confirmation counts do not imply decentralized finality. Genesis allocation is
 shown separately from transfers. Missing node data uses an em dash; empty
@@ -330,8 +389,8 @@ its launcher owns these controls.
 
 Live height, peers and transport appear only after a successful status read.
 Failed reads show unavailable state and em dashes, pause state-dependent actions,
-and distinguish retained settings from a fresh observation. The role label says
-Verifying full node; the nearby explanation states that this role does not
+and distinguish retained settings from a fresh observation. The localized
+Verifying full node role label and nearby explanation state that this role does not
 produce blocks or earn rewards. Quarantine copy preserves the conflict boundary
 instead of suggesting a restart can clear it.
 
@@ -343,8 +402,13 @@ download rows link the EXE, ZIP and SHA-256 checksums. Links and factual copy wo
 without JavaScript; same-origin release metadata only enhances the file-size
 label. The site is not a wallet, network bootstrap service or node dashboard.
 
+The Mac link is a text link to source build instructions, in Ice White, rather
+than a download button. Native Tao/WKWebView support and a universal build script
+target macOS (14+) in source; a verified Mac application download is not offered.
+Do not turn source support into a claim of a tested or signed Mac release.
+
 Future privacy, disclosure, seed recovery, validator quorum and rewards each use
-an explicit Planned badge. The network note says a public network is not live
+an explicit Planned/В планах badge. The network note says a public network is not live
 yet and participants need a reachable seed and common configuration. Keep
 present capabilities, download availability and roadmap goals separately
 checkable; never use the preview image as proof of a deployed public network.
@@ -354,13 +418,14 @@ checkable; never use the preview image as proof of a deployed public network.
 ### Do:
 
 - **Do** preserve the approved eye/flower paths and ORVEXA wordmark proportions.
-- **Do** use English UI copy, whole test atoms and real node-backed values.
+- **Do** default to Russian, retain an English option and show real whole test atoms.
 - **Do** keep Transparent v1, public addresses and amounts explicit.
 - **Do** distinguish pending submission, block inclusion and last known state.
 - **Do** retain keyboard focus, mobile drawer behavior and reduced-motion support.
 - **Do** show encrypted-file backup and restore; v1 has no seed phrase.
 - **Do** distinguish a verifying full node from block authority and reward roles.
 - **Do** pair release downloads with actual app evidence and current preview limits.
+- **Do** translate presentation and accessible labels while preserving user and protocol data.
 
 ### Don't:
 
@@ -371,3 +436,4 @@ checkable; never use the preview image as proof of a deployed public network.
 - **Don't** imply automatic mining, a faucet or decentralized finality.
 - **Don't** use promotional graphics or illustrative data as real ledger state.
 - **Don't** present stale node observations as live or a preview as a public network.
+- **Don't** advertise a verified Mac download or measured efficiency without runtime evidence.

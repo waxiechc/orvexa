@@ -1,51 +1,63 @@
-# ORVEXA Desktop preview 1
+# ORVEXA Desktop — предварительная версия 2
 
-A portable Windows x64 application with a local encrypted wallet, real block
-explorer and supervised Rust P2P full node. The English interface, signing Wasm
-and open-source notices are embedded in the EXE. Microsoft WebView2 runtime is
-required; Rust, Node.js, VPN and a cloud account are not needed to run it.
+Русский стал основным языком приложения, сайта и пользовательских инструкций.
+В приложении есть сохраняемый переключатель RU/EN, на сайте — отдельная English
+страница. Адреса, хеши, подписи, данные кошельков и протокол v1 не менялись.
 
-Download **ORVEXA.exe**, or the complete ZIP with instructions and notices.
-Use **SHA256SUMS.txt** to verify the downloaded files:
+## Скачать и запустить Windows
+
+Скачайте **ORVEXA.exe** или полный **ORVEXA-Desktop-Windows-x64.zip**.
+Внутри интерфейс, Rust/Wasm кошелёк, обозреватель, настоящий полный P2P узел и
+тексты лицензий. Нужен системный Microsoft WebView2 runtime; Rust, Node.js,
+Docker, VPN или облачный аккаунт для запуска не требуются.
 
 ```powershell
 Get-FileHash .\ORVEXA.exe -Algorithm SHA256
 .\ORVEXA.exe
 ```
 
-## What works
+Сверьте хеш с **SHA256SUMS.txt**. Кошельки и данные предыдущей версии не
+сбрасываются; сохраняйте encrypted backup и пароль. Настройка RU/EN не меняет
+origin, chain ID или адрес.
 
-- Create and back up an encrypted wallet; sign transfers locally using Rust Wasm.
-- Import the same public genesis and network manifest, independently check the
-  chain ID and press **Start node**. Verify, store and relay real blocks and
-  transactions over native TCP/Noise P2P.
-- Inspect balances, transaction history, actual hashes, blocks and confirmations.
-- Stop, restart or resume the same node profile with its saved chain and identity.
-- Use Wallet and Explorer while the embedded node runs in the app background.
-  Keep the app open: closing this preview stops its node.
+## Что изменилось
 
-## Current boundary
+- Русские страницы, поля, ошибки, статусы, резервное копирование, обозреватель
+  и accessibility labels. Имена кошельков сохраняются как пользовательские данные.
+- Переносимые зашифрованные копии с русскими именами файлов; выбор файлов
+  остаётся нативным. Математика сумм остаётся BigInt/u64 без потери точности.
+- Меньше фонового UI-опроса в скрытом документе; при возвращении данные обновляются.
+  Сетевой узел продолжает работать независимо от UI-опроса.
+- Два Tokio worker вместо потока на каждое ядро CPU в Desktop.
+- В исходниках добавлены macOS 14+ WKWebView, меню ⌘C/⌘V/⌘Q, изоляция постоянного
+  профиля, иконка из утверждённого знака, universal `.app` сценарий для Apple Silicon
+  и Intel и отдельный workflow. **Проверенного готового архива macOS пока нет**;
+  сборка/окно/энергопотребление требуют проверки на Mac. Windows EXE не работает на Mac.
 
-**Research software: transparent v1 TESTNET, no real funds.** Addresses, amounts
-and sender links are public. A configured single authority produces blocks.
-A full node does not automatically become a block-producing validator or earn
-rewards. The public network is not live, and this release supplies no hosted
-seed or common network files. Obtain verified public configuration from a
-network operator. No automatic authority replacement is implemented.
+## Действующие ограничения
 
-V1 recovery uses an encrypted JSON backup and its password, not a seed phrase.
-Private balances/payments with optional disclosure, seed recovery, validator
-quorum and rewards remain planned. No independent audit or signed installer is
-claimed. ORVEXA is a provisional name.
+Это **исследовательская прозрачная тестовая v1**, без реальных средств. Суммы,
+адреса и связи отправителей публичны. Создание кошелька не создаёт монеты.
+V1 использует encrypted JSON + пароль, не seed-фразу. Один настроенный authority
+создаёт блоки; полный узел не получает права валидатора или награды автоматически.
+Публичная сеть ещё не запущена: нужны общие файлы и доступный узел оператора.
+Закрытие приложения останавливает встроенный узел.
 
-## Validation
+Приватный реестр, seed recovery, BFT и награды остаются отдельными этапами.
+Независимого аудита и подписанного/нотаризованного installer нет.
+ORVEXA — предварительное название.
 
-Windows: formatting, workspace check, Clippy with warnings denied, **48 Rust
-tests**, **2 adapter tests** and **5 end-to-end tests** passed. These include real
-P2P transfers and persistence, two-way wallet transfers, actual native WebView2
-wallet creation, and an extracted-release smoke check. The existing 100-node
-test uses local TCP processes/tasks, not 100 independent Internet operators.
+## Проверки
 
-Read [the Desktop guide](https://github.com/waxiechc/orvexa/blob/main/docs/DESKTOP_APP.md),
-[network operator guide](https://github.com/waxiechc/orvexa/blob/main/docs/NATIVE_P2P.md)
-and [staged implementation plan](https://github.com/waxiechc/orvexa/blob/main/docs/PLATFORM_PLAN.md).
+Windows: форматирование, workspace check, Clippy с запретом предупреждений,
+**48 Rust-тестов**, **2 теста адаптера** и **6 сквозных тестов** прошли.
+Проверены переводы A → B → A, Explorer/restart, настоящий WebView2/Wasm,
+русское создание/ошибка пароля/backup/restore и переключение языка.
+EXE из ZIP отдельно запущен без исходного web/dist; встроенные Wasm и лицензии
+доступны, контрольные суммы совпадают. Сайт RU/EN проверен на широком/мобильном экране.
+Эти проверки Windows не являются подтверждением macOS.
+
+[Инструкция](https://github.com/waxiechc/orvexa/blob/main/docs/DESKTOP_APP.md) ·
+[Сборка Mac](https://github.com/waxiechc/orvexa/blob/main/docs/MACOS.md) ·
+[Сеть](https://github.com/waxiechc/orvexa/blob/main/docs/NATIVE_P2P.md) ·
+[План](https://github.com/waxiechc/orvexa/blob/main/docs/PLATFORM_PLAN.md)

@@ -1,4 +1,4 @@
-param([switch]$SkipBuild)
+param([switch]$SkipBuild, [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.1.0-desktop-preview.2')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -39,7 +39,7 @@ try {
     Copy-Item -LiteralPath $source -Destination (Join-Path $stage 'ORVEXA.exe')
     Copy-Item -LiteralPath 'LICENSE' -Destination $stage
     foreach ($name in @('DESKTOP_APP.md','PLATFORM_PLAN.md','NATIVE_P2P.md','PRIVACY_DESIGN.md')) { Copy-Item -LiteralPath "docs\$name" -Destination $stage }
-    [IO.File]::WriteAllText((Join-Path $stage 'START-HERE.txt'),"Open ORVEXA.exe. Wallet, Explorer and full node are included. Data stays in %LOCALAPPDATA%\ORVEXA. WebView2 runtime required.`r`nRead DESKTOP_APP.md. This is transparent v1 TESTNET, not a private mainnet. No validator quorum or rewards. No live network configuration is supplied.`r`n",[Text.UTF8Encoding]::new($false))
+    Copy-Item -LiteralPath 'docs\DESKTOP_START.txt' -Destination (Join-Path $stage 'START-HERE.txt')
     $private = @(Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object {$_.Name -match '\.wallet\.json$|\.peerkey$|\.secret$|\.sqlite|^profile\.json$|^genesis\.json$|^network\.json$'})
     if ($private.Count) { throw 'Refusing to package operator or user data' }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -49,7 +49,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $stage 'ORVEXA.exe') -Destination $exe
     $lines = @(Get-FileHash -LiteralPath $exe,$archive -Algorithm SHA256 | ForEach-Object {"$($_.Hash.ToLowerInvariant())  $(Split-Path -Leaf $_.Path)"})
     [IO.File]::WriteAllText((Join-Path $output 'SHA256SUMS.txt'),($lines -join "`n")+"`n",[Text.UTF8Encoding]::new($false))
-    [IO.File]::WriteAllText((Join-Path $output 'build.json'),([ordered]@{version='0.1.0-desktop-preview.1';exe_bytes=(Get-Item -LiteralPath $exe).Length;zip_bytes=(Get-Item -LiteralPath $archive).Length;embedded_web=$true;configuration='Release x64 static CRT';privacy='transparent v1';validator_quorum=$false;rewards=$false}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $output 'build.json'),([ordered]@{version=$Version;exe_bytes=(Get-Item -LiteralPath $exe).Length;zip_bytes=(Get-Item -LiteralPath $archive).Length;embedded_web=$true;configuration='Release x64 static CRT';languages=@('ru','en');macos_download_available=$false;privacy='transparent v1';validator_quorum=$false;rewards=$false}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
     Write-Host "Desktop release directory: $output"
     Write-Host "Portable app: $exe"
     Write-Host "ZIP: $archive"

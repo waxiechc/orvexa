@@ -1,62 +1,71 @@
-<p align="center"><img src="docs/assets/repository-banner.svg" alt="ORVEXA — Wallet, Explorer and your own node" width="100%"></p>
+<p align="center"><img src="docs/assets/repository-banner.svg" alt="ORVEXA — Кошелёк, обозреватель и ваш узел" width="100%"></p>
 
-<p align="center"><a href="https://waxiechc.github.io/orvexa/">Website</a> · <a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.1">Download Desktop</a> · <a href="docs/DESKTOP_APP.md">Desktop guide</a> · <a href="docs/PLATFORM_PLAN.md">Roadmap</a> · <a href="README.ru.md">Русский</a></p>
+<p align="center"><a href="https://waxiechc.github.io/orvexa/">Сайт</a> · <a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.2">Скачать приложение</a> · <a href="docs/DESKTOP_APP.md">Инструкция</a> · <a href="docs/MACOS.md">macOS</a> · <a href="docs/PLATFORM_PLAN.md">План</a> · <a href="README.en.md">English</a></p>
 
-ORVEXA is a Rust cryptocurrency research project with a working Windows desktop
-app, local wallet, block explorer and native P2P full node.
+ORVEXA — исследовательский проект криптовалюты на Rust: Windows-приложение,
+локальный кошелёк, обозреватель блоков и настоящий P2P full node.
+Основной язык — **русский**, English доступен в переключателе RU/EN.
 
-**Current release: transparent v1 testnet.** Addresses, amounts and sender links
-are public. Test atoms have no monetary value. One configured authority creates
-blocks; running a full node does not grant validator voting power or rewards.
-The public network is not live and no hosted bootstrap is supplied.
+**Сейчас работает прозрачная тестовая v1.** Адреса, суммы и связи отправителей
+публичны. Тестовые атомы не имеют денежной стоимости. Блоки создаёт один
+настроенный authority; запуск полного узла не даёт права голоса или наград.
+Публичная сеть ещё не запущена, работающий начальный узел не поставляется.
 
-The goal is **private payments and balances by default**, optional public
-payments and owner-controlled disclosure. This requires a new ledger, not a
-cosmetic switch. Read the [privacy design](docs/PRIVACY_DESIGN.md) and
-[staged product plan](docs/PLATFORM_PLAN.md). ORVEXA is a provisional name.
+Цель — **приватные переводы и балансы по умолчанию**, публичные платежи по
+выбору и добровольное раскрытие владельцем. Для этого нужен новый реестр,
+а не переключатель видимости. [Дизайн приватности](docs/PRIVACY_DESIGN.md) ·
+[Поэтапный план](docs/PLATFORM_PLAN.md). ORVEXA — предварительное название.
 
-## Get the app
+## Скачать и запустить
 
-[**Download ORVEXA.exe — Windows x64**](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.1/ORVEXA.exe)
+[**ORVEXA.exe — Windows x64**](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/ORVEXA.exe)
 
-[Complete ZIP + instructions + notices](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.1/ORVEXA-Desktop-Windows-x64.zip)
-· [SHA-256 checksums](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.1/SHA256SUMS.txt)
+[Полный ZIP с инструкциями и лицензиями](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/ORVEXA-Desktop-Windows-x64.zip)
+· [Контрольные суммы](https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/SHA256SUMS.txt)
 
-1. Open the EXE. Microsoft WebView2 runtime is required; Rust, Node.js, Docker,
-   VPN and a cloud account are not needed to run it.
-2. Create a local wallet. Save its encrypted backup and password. V1 uses encrypted
-   JSON backups; seed phrase recovery is planned, not implemented.
-3. To join a common network, import its public `genesis.json` and `network.json`
-   on **Node**, independently verify the chain ID, then press **Start node**.
-   Obtain actual network files from an operator.
-4. Keep the app open. Its node runs in the background while you use Wallet and
-   Explorer. Closing this preview stops its node. Resume on app launch is optional.
+1. Откройте EXE. Нужен системный Microsoft WebView2 runtime. Rust, Node.js,
+   Docker, VPN и облачный аккаунт для запуска не нужны.
+2. Создайте кошелёк в разделе **Кошельки**. Сохраните зашифрованный файл и
+   пароль отдельно. В v1 ещё нет восстановления по seed-фразе.
+3. Для общей сети получите у оператора публичные `genesis.json` и `network.json`.
+   В разделе **Узел** выберите файлы, независимо сверьте chain ID, нажмите
+   **Проверить и сохранить сеть**, затем **Запустить узел**.
+4. Оставьте приложение открытым. Закрытие этой версии останавливает узел.
+   Возобновление при открытии включается отдельно в настройках сети.
 
-Data lives in `%LOCALAPPDATA%\ORVEXA`, separately from the EXE. No operator
-wallets, peer identities, live genesis or chain databases ship in the app.
-See [the desktop guide](docs/DESKTOP_APP.md) for backups, ports and limitations.
+Данные Windows: `%LOCALAPPDATA%\ORVEXA`, отдельно от EXE. В сборке нет кошельков
+оператора, транспортных ключей, рабочей genesis или баз цепочки.
+[Полная инструкция](docs/DESKTOP_APP.md).
 
-<img src="docs/assets/app-preview.png" alt="Actual ORVEXA native Windows app with public network setup and node controls" width="100%">
+**macOS 14+**: добавлен нативный код WKWebView и сценарий universal `.app`
+для Apple Silicon и Intel. Проверенного готового архива Mac пока нет.
+[Как собрать и проверить на Mac](docs/MACOS.md):
 
-## What works
+```bash
+bash scripts/package-macos.sh universal
+```
 
-| Component | Delivered |
+<img src="docs/assets/app-preview.png" alt="Настоящее приложение ORVEXA с управлением локальным узлом" width="100%">
+
+## Что реализовано
+
+| Компонент | Возможности |
 | --- | --- |
-| Wallet | Local Rust/Wasm signing, encrypted keys, send/receive QR, history, native-compatible backup/restore |
-| Explorer | Actual blocks, transaction hash lookup, inclusion counts and public v1 address data |
-| Desktop | Native Windows window, embedded assets, Start/Stop, verified network import, persisted profile, restart/resume |
-| P2P | TCP/Noise/Yamux, separate PeerId, pinned genesis, bounded sync/discovery, conflict quarantine |
-| Ledger | Strict Ed25519, nonce/double-spend checks, fixed supply, burned fees, atomic SQLite commit and replay |
+| Кошелёк | Локальная Rust/Wasm подпись, шифрование ключей, отправка, получение/QR, история, совместимые с CLI резервные файлы |
+| Обозреватель | Настоящие блоки, поиск транзакции по хешу, включение, подтверждения и публичные данные адресов v1 |
+| Desktop | Окно Windows, встроенные ассеты, запуск/остановка узла, проверка сети, сохранение профиля, перезапуск; macOS требует отдельной проверки |
+| P2P | TCP/Noise/Yamux, отдельный PeerId, закреплённая genesis, ограниченная синхронизация и обнаружение участников, карантин конфликтов |
+| Реестр | Строгая Ed25519, проверка счётчиков и двойных трат, фиксированное предложение, сжигание комиссий, атомарная запись SQLite и replay |
 
-Private amounts/balances, selective disclosure, seed wallets, validator quorum,
-rewards and a real-money release are **not implemented**. Each has a separate
-acceptance gate; none follows automatically from a library or UI label.
+Приватные суммы и балансы, выборочное раскрытие, seed-фразы, кворум валидаторов,
+награды и выпуск для реальных средств **не реализованы**. Их нельзя включить
+сменой подписи кнопки или добавлением одной библиотеки.
 
-## Run a server
+## Узел на сервере
 
-Run the headless Rust node on your own machine. Joining needs a reachable peer;
-ordinary NAT clients can dial outbound. Independently reachable bootstrap
-operators are still needed for a public network.
+Нужны общая genesis, идентификатор цепочки и доступный участник. Обычный узел за
+NAT может подключаться исходящим соединением; для общей публичной сети всё равно
+нужны независимо доступные начальные узлы.
 
 ```bash
 git clone https://github.com/waxiechc/orvexa.git
@@ -64,14 +73,14 @@ cd orvexa
 cargo build --release --locked -p orvexa-node -p orvexa-cli
 ```
 
-Follow the [Windows/Linux network guide](docs/NATIVE_P2P.md) using the **same**
-genesis and chain ID. Separate genesis files create separate networks. Never
-give participants the authority wallet. Replicas do not replace an offline authority.
+Следуйте [инструкции Windows/Linux](docs/NATIVE_P2P.md). Разные genesis создают
+разные сети. Не передавайте участникам кошелёк authority. Реплики не заменяют
+отключённый authority автоматически.
 
-## Build and test
+## Сборка и проверки
 
-Rust 1.93+ and a C toolchain are needed for bundled SQLite/ring dependencies.
-Building the UI needs Node.js 24+ and the pinned Wasm toolchain.
+Для исходников нужны Rust 1.93+, C-инструменты для нативных зависимостей,
+Node.js 24+ и закреплённый Wasm toolchain.
 
 ```powershell
 cargo fmt --all -- --check
@@ -82,34 +91,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-web.ps1 -Ins
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-desktop.ps1
 ```
 
-Native GUI packaging is Windows only; Linux uses the headless node/controller.
-Original v1 workflows remain available. Legacy `VOID/...` signing domains and
-`void_test_` addresses intentionally preserve v1 compatibility.
+Тесты проверяют 100 локальных TCP/Noise-узлов, переводы и перезапуски отдельных
+процессов, настоящий WebView2/Wasm, русский интерфейс и переносимые копии.
+Локальные тесты не означают 100 независимых операторов или аудит публичной сети.
+[Протокол проверок](docs/VALIDATION.md).
 
-Tests include a real **100-node local TCP/Noise exercise**, separate-process
-transfer/restart demonstrations, native WebView2/Wasm wallet creation and browser
-Wallet/Explorer flows. Local tests do not establish public Internet DoS resistance
-or 100 independent operators. See [validation](docs/VALIDATION.md).
+Форматы v1 сохранены. Домены подписи `VOID/...` и адреса `void_test_` остаются
+ради совместимости; перевод интерфейса их не меняет.
 
-## Development direction
+## Следующие этапы
 
-1. Desktop and supervised full-node operation.
-2. Isolated evaluation of a maintained privacy backend.
-3. Confidential ledger, note scanning and mnemonic recovery.
-4. Mature BFT engine integration, validator admission and automatic proposer rotation.
-5. Specified emission, Sybil resistance and consensus-verified rewards.
-6. Volunteer infrastructure, independent audits and release hardening.
+[Полный план E1–E8](docs/PLATFORM_PLAN.md): приватный реестр и восстановление,
+затем зрелый BFT, правила допуска валидаторов, эмиссия и проверяемые награды,
+инфраструктура добровольцев, независимый аудит и укрепление выпуска.
 
-A future four-validator equal-weight BFT setup needs three available validators
-to commit; two cannot. After all nodes go offline, saved history survives on
-retained disks, but production waits for the required signing quorum. Seeds
-recover wallet keys, not permanently lost blockchain history.
+Будущий BFT из четырёх равных валидаторов требует трёх доступных для commit.
+Когда все узлы выключены, сохранённая история остаётся на дисках, а работа сети
+ждёт требуемых подписантов. Seed восстанавливает ключи, а не исчезнувшие блоки.
 
-## References
+[Архитектура](ARCHITECTURE.md) · [Модель угроз](THREAT_MODEL.md) ·
+[Приватность](PRIVACY.md) · [Участие](CONTRIBUTING.md) · [Безопасность](SECURITY.md)
 
-[Architecture](ARCHITECTURE.md) · [Threat model](THREAT_MODEL.md) ·
-[Privacy](PRIVACY.md) · [Product plan](docs/PLATFORM_PLAN.md) ·
-[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
-
-MIT source license. Upstream notices accompany the release and are embedded
-in the desktop app. No independent ORVEXA security audit is claimed.
+Исходники — MIT. Тексты лицензий зависимостей входят в выпуск и приложение.
+Независимого аудита безопасности ORVEXA пока нет.

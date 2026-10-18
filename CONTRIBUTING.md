@@ -1,19 +1,25 @@
-# Contributing
+# Участие в разработке
 
-ORVEXA is an experimental transparent testnet. Discuss protocol, monetary,
-privacy and validator-set changes before implementation. Preserve v1 fixtures
-and distinguish delivered behavior from proposals.
+ORVEXA — экспериментальная прозрачная тестовая сеть. Изменения протокола,
+экономики, приватности и состава валидаторов сначала обсуждаются в дизайне.
+Сохраняйте тестовые векторы v1 и отличайте реализованные свойства от планов.
 
-Include a concrete failure, a coherent change and relevant validation. Never
-commit real wallet files, keys, passwords, peer identities, databases or private
-network credentials. Fixed vectors must be clearly identified as public tests.
-Report security issues using SECURITY.md.
+Опишите проблему, изменение и необходимые проверки. Не публикуйте настоящие
+кошельки, ключи, пароли, PeerId-ключи, базы или закрытые сетевые credentials.
+Фиксированные тестовые ключи должны быть явно помечены как публичные.
+О сообщениях безопасности — [SECURITY.md](SECURITY.md).
 
-Run `cargo fmt --all -- --check`, `cargo check --workspace --locked`,
-`cargo test --workspace --locked` and
-`cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`.
-For UI, build the pinned Wasm/web app, run unit/browser tests, inspect desktop
-and mobile, and preserve the approved logo/navy palette.
+```bash
+cargo fmt --all -- --check
+cargo check --workspace --locked
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+```
 
-No custom crypto primitives or privacy claims for v1. Rewards/fees/issuance are
-consensus rules, not UI balances. Contributions use MIT; preserve upstream notices.
+Для интерфейса соберите закреплённый Wasm и web, выполните unit/browser тесты,
+проверьте русский и английский, широкий и мобильный экраны. Сохраняйте утверждённый
+логотип и холодную тёмно-синюю палитру. Команды Mac — в [MACOS.md](docs/MACOS.md).
+
+Не создавайте собственные криптопримитивы и не называйте v1 приватной. Награды,
+комиссии и эмиссия — правила консенсуса, а не числа интерфейса. Вклад — MIT;
+сохраняйте оригинальные лицензии зависимостей без перевода юридического текста.

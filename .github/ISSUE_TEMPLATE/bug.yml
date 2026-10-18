@@ -1,21 +1,21 @@
-name: Bug report
-description: Report an ORVEXA preview issue. Never include secrets.
+name: Сообщить об ошибке
+description: Ошибка предварительной версии ORVEXA. Не прикладывайте секреты.
 body:
   - type: textarea
     id: behavior
     attributes:
-      label: What happened?
-      description: Expected behavior, actual behavior and reproduction steps.
+      label: Что произошло?
+      description: Ожидаемый результат, фактический результат и шаги воспроизведения.
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: Version and operating system
+      label: Версия и операционная система
     validations:
       required: true
   - type: textarea
     id: diagnostics
     attributes:
-      label: Redacted diagnostics
-      description: No wallet files, seeds, passwords or credentials.
+      label: Диагностика без секретов
+      description: Без файлов кошелька, seed-фраз, паролей и credentials.

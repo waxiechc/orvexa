@@ -31,6 +31,8 @@ async function capture(page: Page, name: string) {
   await expect.poll(() => page.locator('.skip-link').evaluate(e => e.getBoundingClientRect().bottom)).toBeLessThanOrEqual(0);
   await page.screenshot({ path: resolve(directory, name), fullPage: true });
 }
+test.beforeEach(async ({ context }) => { await context.addInitScript(() => { try { if (!localStorage.getItem('orvexa.locale')) localStorage.setItem('orvexa.locale', 'en'); } catch { /* about:blank has no storage origin */ } }); });
+
 test.beforeAll(async () => {
   mkdirSync(resolve(root, 'demo-data'), { recursive: true }); directory = mkdtempSync(resolve(root, 'demo-data/desktop-e2e-'));
   const authority = command(cli, ['wallet-new', '--wallet', resolve(directory, 'authority.wallet.json'), '--password-stdin'], secret);
@@ -80,6 +82,81 @@ test('real desktop controller joins one chain, transfers, stops and resumes', as
   expect(errors).toEqual([]); writeFileSync(resolve(directory, 'result.json'), JSON.stringify({ result: 'PASS', control_and_native_ledger: true, profile_resumed: true, height: 1, tip: chain.tip, consensus: 'single authority, not BFT', privacy: 'transparent v1' }, null, 2));
 });
 
+test('Russian wallet, recovery, all routes and persistent language switch use the actual node', async ({ browser }) => {
+  const context = await browser.newContext({ locale: 'ru-RU' });
+  const page = await context.newPage(); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
+  page.setDefaultTimeout(20000);
+  try {
+    await page.goto(`${origin}/#/wallets`);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+    await page.getByRole('button', { name: 'Создать кошелёк', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Название кошелька').fill('Личный кошелёк');
+    await dialog.getByLabel('Новый пароль').fill(secret); await dialog.getByLabel('Повторите пароль').fill('Does-not-match');
+    await dialog.getByRole('button', { name: 'Создать кошелёк', exact: true }).click();
+    await expect(dialog.getByRole('alert')).toContainText('Пароли не совпадают.');
+    await dialog.getByLabel('Новый пароль').fill(secret); await dialog.getByLabel('Повторите пароль').fill(secret);
+    await dialog.getByRole('button', { name: 'Создать кошелёк', exact: true }).click();
+    await expect(dialog.getByText('Ваш кошелёк готов')).toBeVisible();
+    const downloadEvent = page.waitForEvent('download'); await dialog.getByRole('button', { name: 'Скачать зашифрованную копию' }).click();
+    const download = await downloadEvent; const backup = resolve(directory, 'russian-backup.wallet.json'); await download.saveAs(backup);
+    expect(download.suggestedFilename()).toContain('Личный');
+    const address = command(cli, ['wallet-verify', '--wallet', backup, '--password-stdin'], secret);
+    expect(address).toContain('void_test_');
+    await dialog.getByRole('button', { name: 'Перейти к кошельку' }).click();
+    await page.goto(`${origin}/#/backup`);
+    await page.getByLabel('Зашифрованная резервная копия', { exact: true }).setInputFiles(backup);
+    await page.getByLabel('Пароль резервной копии').fill(secret);
+    await page.getByRole('button', { name: 'Проверить копию', exact: true }).click();
+    await expect(page.locator('.verified-result')).toContainText('Копия проверена локально.');
+    await page.getByLabel('Язык', { exact: true }).selectOption('en');
+    await expect(page.locator('.verified-result')).toContainText('Backup verified locally.');
+    await page.getByLabel('Language', { exact: true }).selectOption('ru');
+    await expect(page.locator('.verified-result')).toContainText('Копия проверена локально.');
+    await page.goto(`${origin}/#/send`);
+    await page.getByLabel('Адрес получателя').fill(command(cli, ['address', '--wallet', backup]));
+    await page.getByLabel('Сумма', { exact: false }).fill('1000001');
+    await page.getByRole('button', { name: 'Проверить перевод', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('превышает весь объём');
+    await page.getByLabel('Язык', { exact: true }).selectOption('en');
+    await expect(page.getByRole('alert')).toContainText('exceeds the entire test supply');
+    await page.getByLabel('Language', { exact: true }).selectOption('ru');
+    await expect(page.getByRole('alert')).toContainText('превышает весь объём');
+    for (const route of ['dashboard','send','receive','transactions','wallets','backup','settings','explorer','node']) {
+      await page.goto(`${origin}/#/${route}`);
+      await expect(page.locator('main h1')).not.toHaveText(/Dashboard|Send|Receive|Transactions|Wallets|Backup|Settings|Explorer|^Node$/);
+      const texts = await page.locator('main h2, main button, .sidebar nav a').allTextContents();
+      expect(texts.filter(text => /^(Start node|Stop node|Create wallet|Restore wallet|Refresh|Copy|Search)$/.test(text.trim()))).toEqual([]);
+      for (const width of [1440, 390, 320]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} at ${width}px`).toBe(true);
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 }); await capture(page, 'node-russian-desktop.png');
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await capture(page, 'node-russian-mobile.png');
+    await page.getByLabel('Язык', { exact: true }).selectOption('en');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en'); await expect(page.locator('main h1')).toHaveText('Node');
+    await page.reload(); await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await page.getByLabel('Language', { exact: true }).selectOption('ru');
+    await page.goto(`${origin}/#/wallets`); await expect(page.locator('.wallet-name strong').filter({ hasText: 'Личный кошелёк' })).toBeVisible();
+    const restoredContext = await browser.newContext({ locale: 'ru-RU' });
+    try {
+      const restored = await restoredContext.newPage(); await restored.goto(`${origin}/#/wallets`);
+      await restored.getByRole('button', { name: 'Восстановить кошелёк', exact: true }).click();
+      const recovery = restored.getByRole('dialog');
+      await recovery.getByLabel('Название кошелька').fill('Восстановленный');
+      await recovery.getByLabel('Зашифрованный файл кошелька').setInputFiles(backup);
+      await recovery.getByLabel('Пароль резервной копии').fill(secret);
+      await recovery.getByRole('button', { name: 'Восстановить кошелёк', exact: true }).click();
+      await expect(recovery.getByText('Ваш кошелёк готов')).toBeVisible();
+      expect(await recovery.locator('code').innerText()).toContain('void_test_');
+    } finally { await restoredContext.close(); }
+    expect(errors).toEqual([]);
+  } finally { await context.close(); }
+});
+
 test('native Windows window renders embedded app and executes local Wasm', async () => {
   test.skip(process.platform !== 'win32' || !process.env.ORVEXA_NATIVE_GUI_TEST, 'Explicit Windows WebView2 test');
   const nativeOrigin = 'http://127.0.0.1:60242';
@@ -90,6 +167,9 @@ test('native Windows window renders embedded app and executes local Wasm', async
     browser = await chromium.connectOverCDP('http://127.0.0.1:60243');
     await expect.poll(() => browser!.contexts()[0].pages().some(p => p.url().startsWith(nativeOrigin))).toBe(true);
     const page = browser.contexts()[0].pages().find(p => p.url().startsWith(nativeOrigin))!;
+    await expect(page.getByRole('heading', { name: 'Подключите свой узел' })).toBeVisible();
+    await capture(page, 'native-window-russian.png');
+    await page.evaluate(() => localStorage.setItem('orvexa.locale', 'en')); await page.reload();
     await expect(page.getByRole('heading', { name: 'Connect your node' })).toBeVisible(); await capture(page, 'native-window.png');
     await page.goto(`${nativeOrigin}/#/wallets`); await page.getByRole('button', { name: 'Create wallet', exact: true }).click();
     const dialog = page.getByRole('dialog'); await dialog.getByLabel('Wallet name').fill('Native window wallet'); await dialog.getByLabel('New password').fill(secret); await dialog.getByLabel('Repeat password').fill(secret); await dialog.getByRole('button', { name: 'Create wallet', exact: true }).click(); await expect(dialog.getByText('Your wallet is ready')).toBeVisible();

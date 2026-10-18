@@ -1,75 +1,73 @@
-# Privacy research and integration boundary
+# Приватность: исследования и граница интеграции
 
-The detailed [v2 design proposal](docs/PRIVACY_DESIGN.md) and
-[test plan](docs/PRIVACY_TEST_PLAN.md) supersede the earlier research priority
-below. Revision 2 compares Monero RingCT/CLSAG with Orchard/Ironwood across seven
-criteria and recommends the shielded-note architecture conditionally. Orchard
-0.16.0 / Ironwood-v3 remains an evaluation candidate. P1 now evaluates upstream
-outside this working workspace; custom format/adapter work is deferred to P2.
-Wallet recovery and a public Explorer without balances are explicit later steps.
-Implementation awaits approval. No private backend or shielded ledger is present.
+[English](PRIVACY.en.md). Подробный [дизайн v2](docs/PRIVACY_DESIGN.md) и
+[план тестов](docs/PRIVACY_TEST_PLAN.md) содержат текущее решение. Редакция 2
+сравнивает Monero RingCT/CLSAG и Orchard/Ironwood по семи критериям и условно
+рекомендует shielded-note архитектуру. Orchard 0.16.0 / Ironwood-v3 остаётся
+кандидатом для отдельной upstream оценки P1. Формат и адаптер отложены до P2.
+Приватный backend не подключён; внедрение требует согласования дизайна.
 
-The delivered English Wallet/Explorer is a **transparent-v1** client. It reuses
-the native encrypted container and Rust signing via WebAssembly; encrypted files
-and passwords stay in the browser. Its balance/history/address queries still
-disclose public v1 metadata to the local node. `TransparentV1Adapter` separates
-views from ledger access, but a future private wallet needs local note scanning,
-new recovery semantics and a separate adapter. The UI does not implement any
-privacy stage or imply anonymity. See [the running guide](docs/WEB_WALLET.md).
+## Что действует сейчас
 
-The friends-testnet profile adds encrypted private-VPN transport and authenticated
-read-only peers. It preserves the same public transaction graph, one authority
-and v1 ledger. Transport encryption does not hide amounts/balances from participants
-or provide sender/recipient anonymity. [Operator guide](docs/FRIENDS_TESTNET.md).
+Кошелёк и обозреватель RU/EN работают с **прозрачной v1**. Rust WebAssembly
+использует исходный зашифрованный контейнер и подпись. Файлы и пароли остаются
+локально. Balance/history/address запросы раскрывают публичные метаданные
+локальному узлу. TransparentV1Adapter отделяет представление от реестра,
+но приватному кошельку нужны отдельный адаптер, сканирование notes и новая
+модель восстановления. Интерфейс не обеспечивает анонимность.
 
-## Requirements and alternatives
+Friends mesh шифрует транспорт через приватный VPN, а native P2P использует
+TCP/Noise/Yamux без VPN/сервисов. Оба сохраняют публичный граф переводов и одного
+authority. Шифрование транспорта не скрывает суммы/балансы от участников.
+Peers видят IP, PeerId и тайминги. [Запуск](docs/NATIVE_P2P.md).
 
-The optional [native P2P profile](docs/NATIVE_P2P.md) removes the VPN/service
-requirement using TCP/Noise/Yamux. It preserves the transparent v1 transaction
-graph and single authority. Transport encryption does not hide balances or
-payment links from validating nodes, and peers can observe IP/PeerId/timing.
+## Разные задачи приватности
 
-Recipient unlinkability, hidden amounts and sender ambiguity are different
-properties. They must share compatible transaction algebra, wallet scanning,
-double-spend protection, proof verification and consensus encodings.
+Несвязываемость получателя, скрытые суммы и неопределённость отправителя —
+разные свойства. Они должны быть совместимы с учётом баланса, сканированием,
+двойными тратами, доказательствами и каноническими правилами консенсуса.
 
-| Family | Mechanisms | Integration consequences |
+| Архитектура | Механизмы | Последствия интеграции |
 | --- | --- | --- |
-| Monero-style output ledger | One-time stealth destinations; commitments and range proofs; linkable ring proofs with key images | Decoy selection, view/spend keys and confidential conservation rules; small anonymity sets remain vulnerable to heuristics |
-| Shielded note pool (e.g. Zcash Orchard) | Note commitments, nullifiers and zero-knowledge spend/output proofs | Circuit/proving stack, Merkle witness maintenance, wallet scanning and large verification surface; setup assumptions depend on the chosen construction |
-| Confidential amounts only | Commitments + range proofs | Hides amounts but leaves the transaction graph; insufficient for ORVEXA's full goal |
+| Monero-подобный output ledger | Одноразовые stealth назначения, commitments/range proofs, связываемые ring proofs и key images | Нужны decoy selection, view/spend keys, confidential conservation; малые множества уязвимы для эвристик |
+| Shielded note pool, например Orchard | Note commitments, nullifiers, ZK spend/output proofs | Схемы и proving, Merkle witnesses, сканирование и большая поверхность проверки; setup зависит от точной конструкции |
+| Только конфиденциальные суммы | Commitments + range proofs | Суммы скрыты, граф переводов остаётся; недостаточно для полной цели ORVEXA |
 
-Comparison retained for context: Monero-style outputs and shielded pools solve
-different integration problems. **An architecture is recommended; no exact backend
-is accepted for deployment.** The current account ledger stays available as v1;
-a new privacy ledger would be separate. Ed25519 account signatures cannot simply be swapped for ring
-signatures without redesigning ownership, balance verification and replay rules.
-Do not combine a standalone Bulletproofs crate, stealth key derivation and an
-unreviewed ring implementation and infer that the resulting protocol is safe.
+**Рекомендована архитектура; точный backend для развёртывания не принят.**
+Ed25519 account подписи нельзя просто заменить кольцевыми без нового владения,
+проверки балансов и replay правил. Нельзя соединить отдельную Bulletproofs
+библиотеку, stealth derivation и непроверенные rings и считать протокол безопасным.
 
-`orvexa_crypto::privacy::PrivacyBackend` is an integration contract only. The only
-current capability report is Transparent; it never returns a fake privacy proof
-or accepts a private transaction. A future implementation needs published audit
-scope, license compatibility, maintained upstream, canonical vectors, malformed
-proof rejection, amount conservation/range tests, unique nullifiers/key images,
-wallet recovery/scanning tests and a migration/version plan.
+`orvexa_crypto::privacy::PrivacyBackend` — только контракт интеграции. Текущая
+возможность — Transparent; он не создаёт подставные proofs и не принимает
+приватные транзакции. Нужны точный upstream, лицензия, область аудита,
+поддержка, канонические векторы, отклонение повреждённых proofs, range/conservation,
+уникальность nullifier/key image, восстановление и сохранение после перезапуска.
 
-Network privacy is separate: even a valid shielded transaction can leak its source
-through first-seen timing, IP addresses, peer topology or remote wallet queries.
-Tor/I2P and Dandelion++ require their own active-adversary and correlation analysis;
-none is present in v0.1.
+## Скрытый баланс и добровольное раскрытие
 
-## Primary sources consulted
+Цель: приватно по умолчанию, публично по явному выбору владельца. Отдельный
+платёж раскрывается отдельной проверяемой квитанцией; viewing key имеет более
+широкий охват и не должен выдаваться вместо неё. Доказательство полного баланса
+не равно подписи числа или доказательству владения выбранными notes.
 
-- [Monero technical overview](https://www.getmonero.org/resources/about/)
-- [Stealth addresses](https://web.getmonero.org/resources/moneropedia/stealthaddress.html)
-- [RingCT research paper](https://web.getmonero.org/resources/research-lab/pubs/MRL-0005.pdf)
-- [Zcash protocol specification](https://zips.z.cash/protocol/protocol.pdf)
-- [Dandelion++ paper](https://arxiv.org/abs/1805.11060)
-- [ed25519-dalek 2.2 API](https://docs.rs/ed25519-dalek/2.2.0/ed25519_dalek/)
-- [RustCrypto Argon2 0.5](https://docs.rs/argon2/0.5.3/argon2/)
-- [RustCrypto XChaCha20-Poly1305 0.10](https://docs.rs/chacha20poly1305/0.10.1/chacha20poly1305/)
+Опубликованную сумму нельзя скрыть задним числом. Переданные данные просмотра
+нельзя удалить из чужой копии. Переходы public↔private могут раскрывать сумму,
+тайминги и связи. При сбое proving нельзя незаметно перейти в публичный режим.
+Explorer показывает доступные публичные данные, не обходит защиту.
 
-Dependency choices use the inspected stable API series; newer major releases are
-not automatically interchangeable. Cargo.lock records the resolved graph and
-local compilation/tests check compatibility with the installed Rust toolchain.
+Даже корректная shielded транзакция может выдать источник через first-seen,
+IP, топологию или удалённые запросы кошелька. Tor/I2P и Dandelion++ требуют
+отдельного анализа активного противника и корреляции; в v1 их нет.
+
+## Первоисточники
+
+- [Monero](https://www.getmonero.org/resources/about/), [stealth addresses](https://web.getmonero.org/resources/moneropedia/stealthaddress.html)
+- [RingCT](https://web.getmonero.org/resources/research-lab/pubs/MRL-0005.pdf)
+- [Zcash protocol](https://zips.z.cash/protocol/protocol.pdf)
+- [Dandelion++](https://arxiv.org/abs/1805.11060)
+- [ed25519-dalek 2.2](https://docs.rs/ed25519-dalek/2.2.0/ed25519_dalek/)
+- [Argon2 0.5](https://docs.rs/argon2/0.5.3/argon2/), [XChaCha20-Poly1305](https://docs.rs/chacha20poly1305/0.10.1/chacha20poly1305/)
+
+Cargo.lock закрепляет граф зависимостей. Новые major версии не считаются
+взаимозаменяемыми автоматически; компиляция и тесты проверяют совместимость.

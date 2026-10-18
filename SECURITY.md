@@ -1,14 +1,14 @@
-# Security
+# Безопасность
 
-ORVEXA is unaudited research software for test atoms, with a transparent v1 ledger
-and one block authority. Do not use it for real funds or assume privacy,
-Byzantine finality, Sybil resistance or hosted-network availability.
+ORVEXA — исследовательское ПО без независимого аудита: прозрачная v1 и один
+производитель блоков. Не используйте реальные средства и не предполагайте
+анонимность, византийскую финальность, защиту от Sybil или доступность публичной сети.
 
-Use GitHub **Report a vulnerability** when available. Never post private keys,
-seeds, passwords or wallet files in a public issue. If private reporting is
-unavailable, request a private contact channel without disclosing exploit details
-or secrets. No response SLA or bug-bounty payment is promised.
+Используйте GitHub **Report a vulnerability**, если приватный канал включён.
+Не прикладывайте закрытые ключи, seed-фразы, пароли или кошельки к публичному
+issue. Если приватного канала нет, запросите его без раскрытия деталей атаки
+или секретов. Срок ответа и вознаграждение за уязвимости не обещаются.
 
-Ordinary bug reports can include version, OS, redacted errors and reproduction.
-Known limits are documented in the threat model. Audit coverage requires explicit
-independent audit results.
+Для обычной ошибки укажите версию, ОС, очищенную от секретов диагностику и
+сценарий воспроизведения. Известные ограничения — в [модели угроз](THREAT_MODEL.md).
+Заявлять об аудите можно только со ссылкой на конкретный независимый результат.

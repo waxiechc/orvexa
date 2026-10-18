@@ -1,0 +1,40 @@
+name: macOS native preview
+on:
+  workflow_dispatch:
+jobs:
+  package:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - run: cargo fmt --all -- --check
+      - run: cargo check --workspace --locked
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: bash scripts/package-macos.sh universal
+      - name: Check packaged headless controller
+        run: |
+          app=$(find release -path '*/ORVEXA.app/Contents/MacOS/ORVEXA' -type f | head -n 1)
+          "$app" --headless --listen 127.0.0.1:59242 --data-dir "$RUNNER_TEMP/orvexa-smoke" &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            if curl --fail http://127.0.0.1:59242/v1/desktop/status > "$RUNNER_TEMP/status.json"; then break; fi
+            sleep 1
+          done
+          node -e "const s=JSON.parse(require('fs').readFileSync(process.env.RUNNER_TEMP+'/status.json'));if(s.validator_active||s.rewards_supported)throw Error('Unexpected capability');"
+          curl --fail http://127.0.0.1:59242/wasm/orvexa_web_wallet_bg.wasm -o "$RUNNER_TEMP/signer.wasm"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ORVEXA-macOS-universal
+          path: |
+            release/macos-*/ORVEXA-macOS-universal.zip
+            release/macos-*/SHA256SUMS-macOS.txt
+          if-no-files-found: error

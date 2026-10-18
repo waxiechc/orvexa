@@ -1,81 +1,80 @@
-# Wallet & Explorer — local ORVEXA v1
+# Кошелёк и обозреватель ORVEXA v1
 
-Working English browser UI with the actual Rust backend. Transfers are
-**transparent**: addresses, amounts and links are public. Only test atoms;
-no real funds. The separate privacy-v2 design is not activated.
+[English](WEB_WALLET.en.md). Основной язык — русский; RU/EN в шапке сохраняет
+выбор локально. Интерфейс использует настоящий backend Rust. Переводы
+**прозрачные**: адреса, суммы и связи публичны. Только тестовые атомы без реальных
+средств. Приватный дизайн v2 не активирован.
 
-For separate computers and automatic confirmations, use the opt-in
-[friends-testnet guide](FRIENDS_TESTNET.md). It preserves the local workflow below,
-with a separate authority key and private-VPN peer listener. Wallet/Explorer
-continues to run on each participant's loopback origin.
+Для готового Windows EXE читайте [Desktop](DESKTOP_APP.md), для нативного Mac —
+[MACOS.md](MACOS.md), для отдельных компьютеров без сервисов —
+[NATIVE_P2P.md](NATIVE_P2P.md). Ниже сохранён воспроизводимый локальный сценарий
+трёх процессов; это pull-репликация, отдельная от нативного P2P.
 
-## Windows PowerShell: build and start
+## Сборка и запуск Windows PowerShell
 
-Requirements: Rust 1.93+, Node.js 24+, npm and the native Windows Rust build tools
-already used by this project. Internet is needed for build dependencies. The
-built app uses no CDN, external fonts, telemetry or remote services.
+Нужны Rust 1.93+, Node.js 24+, npm и Windows Rust build tools. Интернет нужен
+для сборочных зависимостей; готовый интерфейс не использует CDN, внешние шрифты,
+телеметрию или удалённый сервис подписи.
+
+Из корня клонированного репозитория:
 
 ```powershell
-Set-Location 'C:\Users\waxie\Desktop\void'
 cargo build --workspace --locked
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-web.ps1 -InstallTools
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1 -SkipBuild -OpenBrowser
 ```
 
-The build script installs exact Rust 1.93.0 with the Wasm target and
-wasm-bindgen CLI 0.2.129. The separate toolchain avoids the missing `rust-lld`
-in the original local stable installation. Later builds may omit `-InstallTools`.
+Отдельный toolchain Rust 1.93.0/wasm32 и wasm-bindgen-cli 0.2.129 закреплены.
+При следующих сборках можно не указывать `-InstallTools`. Если узлы уже запущены
+из `target/debug`, используйте отдельный target-dir для сборки, не перезаписывая
+занятые EXE. Не останавливайте чужие процессы.
 
-On first launch, choose and repeat passwords for **Wallet A and Wallet B**
-(at least 12 characters). They are not command arguments, logged, retained by
-the script or sent to the node. Open [the app](http://127.0.0.1:4242); the exact
-numeric origin is required, not `localhost`.
+При первом запуске выберите и повторите пароли A и B, минимум 12 символов.
+Пароли не передаются аргументами, в логи, на сервер и не сохраняются сценарием.
+Откройте `http://127.0.0.1:4242`; нужен точный числовой origin, не `localhost`.
 
-Three hidden node processes use separate SQLite files on ports 4242–4244.
-The first hosts Wallet/Explorer; the launcher pulls its blocks and pending
-transfers to the peers every two seconds. This is local replication, not P2P
-gossip. Ctrl+C stops only the children created by this invocation.
+Три скрытых процесса используют разные SQLite на портах 4242–4244. Первый
+обслуживает интерфейс; launcher каждые 2 секунды копирует блоки/pending на два
+других. Ctrl+C завершает только собственные дочерние процессы запуска.
 
-Files in `data\local-web`: `wallet-a.wallet.json` (genesis recipient/authority),
-`wallet-b.wallet.json`, common `genesis.json`, independent `node-0.sqlite` through
-`node-2.sqlite`, and node diagnostic logs without wallet secrets. Existing
-wallets/chain are never overwritten or reset. Use `-BasePort 4342` for other ports,
-`-DataDir data\another-network` for a separate chain, or `-Nodes 1` for one node.
-Each browser origin has separate storage; changed ports require wallet imports.
+Каталог `data/local-web`: кошельки `wallet-a.wallet.json` и `wallet-b.wallet.json`,
+общая `genesis.json`, `node-0.sqlite`…`node-2.sqlite` и диагностические логи без
+секретов. A — получатель genesis и authority именно в этом legacy сценарии.
+Для реалистичной сети ключи расходов и автоматического authority разделяются.
+Существующие данные не сбрасываются. Параметры `-BasePort 4342`,
+`-DataDir data\another-network`, `-Nodes 1` задают отдельные варианты. Изменённый
+порт — другой origin и другое локальное хранилище, понадобится импорт копий.
 
-## Check two wallets
+## Проверка двух кошельков
 
-1. Open **Wallets → Restore wallet**. Select
-   `data\local-web\wallet-a.wallet.json`, name it `Wallet A`, enter A's password,
-   download the encrypted backup and continue. Repeat for `wallet-b.wallet.json`
-   as `Wallet B`, using B's password. Authentication runs locally in a worker.
-2. Select A in the header. Dashboard reads **1,000,000 test atoms**; B has zero.
-   The one allowed funding mechanism is genesis. There is no faucet, admin
-   balance endpoint or later minting. Creating another browser wallet gives no coins.
-3. Select B → **Receive** and copy its full address. Select A → **Send**, paste
-   B's address, set amount **250**, fee **2**, review, and sign with A's password.
-   Acceptance means **pending**, not confirmed.
-4. Open the receipt's **View in Explorer** link. Its real hash has zero
-   confirmations. Click **Produce authority block** and use **A's password**.
-   Dashboard's **Produce block** works too. No authority secret is on the server.
-5. The transfer is now in block 1: **A = 999,748**, **B = 250**, burned fees **2**.
-   Search the actual hash in Explorer; positive block heights and public v1
-   addresses are searchable too.
-6. Select B and send **40** to A with fee **1**, signing with **B's password**.
-   Produce the next block with **A's password**, even while B is selected.
-   At height 2: **A = 999,788**, **B = 209**, burned fees **3**. Balances plus
-   burned fees equal 1,000,000. The peers catch up on the next launcher poll.
-7. Press Ctrl+C in the launcher terminal, then restart with the same data:
+1. **Кошельки → Восстановить кошелёк**. Выберите
+   `data\local-web\wallet-a.wallet.json`, задайте название A и пароль A.
+   Скачайте зашифрованную копию и продолжите. Повторите для B с его паролем.
+2. Выберите A в шапке. На обзоре 1 000 000 тестовых атомов, у B — 0.
+   Это начальное распределение; крана, admin balance или последующего mint нет.
+   Создание нового кошелька не создаёт монеты.
+3. У B откройте **Получить**, скопируйте адрес. Выберите A → **Отправить**,
+   вставьте адрес B, сумма **250**, комиссия **2**, проверьте и подпишите
+   паролем A. Принятие означает **Ожидает**, не подтверждение.
+4. **Открыть в обозревателе** показывает настоящий хеш и 0 подтверждений.
+   Нажмите **Создать блок authority**, введите пароль A. Кнопка **Создать блок**
+   на обзоре также работает. Сервер не хранит authority spending password.
+5. Блок 1: **A = 999 748, B = 250, сожжённые комиссии = 2**. Найдите хеш
+   в обозревателе. Также доступны положительная высота и публичный адрес v1.
+6. От B отправьте **40** обратно A с комиссией **1**, пароль B. Следующий
+   блок подписывает A. Высота 2: **A = 999 788, B = 209, комиссии = 3**.
+   Балансы плюс сожжённые комиссии равны 1 000 000. Реплики догонят при опросе.
+7. Остановите launcher через Ctrl+C и запустите снова с тем же каталогом:
 
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1 -SkipBuild -OpenBrowser
    ```
 
-   No wallets/genesis are recreated. Confirmed balances, hashes and blocks
-   recover from SQLite. Pending transfers are volatile and may disappear;
-   a missing hash is never displayed as confirmed.
+   Кошельки/genesis не пересоздаются. Подтверждённые блоки, хеши и балансы
+   восстанавливаются из SQLite. Pending временный и может исчезнуть. Неизвестный
+   хеш никогда не считается подтверждённым.
 
-Read-only checks from another terminal:
+Проверка чтением из другого терминала:
 
 ```powershell
 $a = .\target\debug\orvexa-cli.exe address --wallet .\data\local-web\wallet-a.wallet.json
@@ -86,65 +85,45 @@ Invoke-RestMethod "http://127.0.0.1:4242/v1/balance/$b"
     Select-Object chain_id,height,tip,burned_fees,pending
 ```
 
-For an existing manual database:
+Существующая ручная база:
 
 ```powershell
 .\target\debug\orvexa-node.exe run --db .\data\node-a.sqlite --listen 127.0.0.1:4242 --web-dir .\web\dist
 ```
 
-Omit `--web-dir` to keep the original CLI-only origin policy. Canonical v1
-transactions, legacy domains/addresses, consensus, database schema and economics
-remain unchanged. The launcher expects A to be both genesis recipient/authority;
-other configurations use the manual commands.
+Без `--web-dir` сохраняется исходная CLI-only политика Origin. Транзакции,
+домены, адреса, консенсус, схема и экономика v1 не изменены.
 
-## Wallet and browser security
+## Безопасность и ограничения
 
-`orvexa-web-wallet` reuses Rust core/wallet through Wasm. A fresh worker performs
-each operation and terminates afterwards; no unlocked key/session is retained.
-Only signed transaction/block bytes are posted. No key/seed/password endpoint
-exists. Browser storage contains encrypted v1 containers, public addresses and
-local labels; **it is not a backup**. Password fields are cleared after use, but
-erasure of all JavaScript/browser copies cannot be guaranteed. Malware,
-extensions and modified app code can compromise an active wallet.
+`orvexa-web-wallet` использует исходные Rust core/wallet в отдельном новом
+worker на операцию. После завершения worker уничтожается; разблокированная
+сессия не сохраняется. На node отправляются только signed tx/block, не
+wallet/seed/password. В localStorage только encrypted v1 контейнер, адрес и
+метки. **Это не backup.** Пароли очищаются из полей, но гарантированно стереть
+все копии JavaScript/browser/ОС нельзя. Malware, расширения и подмена кода опасны.
 
-The native encrypted format is unchanged: Argon2id (64 MiB / 3 passes / 1 lane),
-XChaCha20-Poly1305 and authenticated public metadata. Restore verifies the
-password before storing a file. **Backup & Restore** downloads encrypted files
-and tests them locally. Browser-created files work with the native CLI:
+Формат прежний: Argon2id 64 МиБ / 3 прохода / 1 lane, XChaCha20-Poly1305 и
+аутентифицированные public metadata. Восстановление проверяет пароль до
+сохранения. **Резервная копия** скачивает зашифрованный файл и проверяет его
+локально. Файл браузера можно проверить native CLI:
 
 ```powershell
 .\target\debug\orvexa-cli.exe wallet-verify --wallet .\data\local-web\wallet-a.wallet.json
 ```
 
-There is **no mnemonic seed phrase** in v1. The encrypted file plus password
-restores its key/address; labels are browser-local and history comes from the
-selected chain. Verify backups before deleting any browser copy.
+В v1 нет mnemonic. Файл + пароль восстанавливают ключ/адрес, названия локальны,
+история берётся из выбранной цепочки. Сверяйте chain ID и резервную копию.
+Первый проверенный genesis закрепляет сеть; смена отключает подпись до
+явного решения в настройках. Host/Origin/fetch-site, CSP и запрет framing/CORS
+не защищают от локального malware. Это не аудированный light client.
 
-The first validated genesis pins the network. A changed chain disables signing
-until reviewed in Settings. Host/Origin/fetch-site checks, restrictive CSP,
-no CORS, no framing/referrer and no-store responses protect the optional browser
-host. It does not authenticate hostile local programs. The default API still
-rejects all browser Origins. This is not an audited wallet or an independently
-validating light client; the served app and local validating node are trusted.
+`/v1/ui-state` получает согласованные tip/balance/history/mempool под одной
+блокировкой. Суммы/счётчики — десятичные строки/BigInt. История — последние 256
+переводов, страницы блоков — по 8. [API](API.md). Для приватности нужен отдельный
+адаптер, scanning и recovery; прозрачный address lookup не используется вместо них.
 
-## Pages and integration
-
-Dashboard, Send, Receive/QR, Transactions, Wallets, Backup & Restore and Settings
-share tokens/components. Explorer reads newest/older blocks, block details,
-actual IDs, pending/confirmed states and public v1 addresses. Confirmations count
-accepted blocks, not Byzantine finality. Logical slots are not calendar dates.
-The QR contains the raw address, explicitly not a network-bound payment invoice.
-
-`/v1/ui-state?address=…` reads balance/history/mempool/tip under one lock, avoiding
-inconsistent observations during block acceptance. Integers remain exact decimal
-strings/BigInt in the adapter. History is the latest 256 confirmed transfers;
-block pages contain eight. See [API.md](API.md).
-
-Views use `TransparentV1Adapter`. Address lookup is explicitly a v1 capability;
-a private ledger needs a separate adapter, scanning and recovery model. No
-experimental privacy backend is simulated or integrated here.
-
-## Checks
+## Проверки
 
 ```powershell
 cargo fmt --all -- --check
@@ -152,16 +131,14 @@ cargo check --workspace --locked
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 Set-Location web
-npm.cmd ci --ignore-scripts
 npm.cmd run build
 npm.cmd run test:unit
 npm.cmd exec -- playwright install chromium
 npm.cmd test
 ```
 
-Browser tests run a real Rust/SQLite node, restore native wallets, sign both
-directions through Wasm, check inclusion/restart, open browser backups in the
-CLI, and test wrong passwords, unknown hashes, network pinning and mobile
-navigation. Desktop/mobile screenshots of every page are in `web/test-results`.
-Test wallet passwords are disposable and not retained. Actual results and
-implementation inventory: [VALIDATION.md](VALIDATION.md). Brand: [BRAND.md](BRAND.md).
+Тесты используют настоящие Rust/SQLite процессы, Wasm-подпись A → B → A,
+включение, restart, native-compatible backup, неправильные пароли, неизвестные
+хеши, chain pin, мобильную навигацию и русский/английский. Отдельная явная
+Windows проверка включает `ORVEXA_NATIVE_GUI_TEST=1` и запускает WebView2.
+[Результаты](VALIDATION.md), [бренд](BRAND.md).

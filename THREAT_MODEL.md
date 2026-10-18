@@ -1,81 +1,89 @@
-# ORVEXA threat model
+# ORVEXA: модель угроз
 
-This v0.1 prototype is transparent and unaudited. Use test atoms only.
+[English](THREAT_MODEL.en.md). Прототип v0.1 прозрачен и не прошёл независимый
+аудит. Используйте только тестовые атомы.
 
-| Threat | Current control | Remaining limitation |
+| Угроза | Текущая защита | Оставшееся ограничение |
 | --- | --- | --- |
-| Chain observer | None for transaction privacy | Addresses, sender links, amount, fee, nonce and history are public |
-| Network observer | Numeric loopback binding; no telemetry | A local process can correlate HTTP requests, timing and wallet lookups; no Tor/I2P or Dandelion++ |
-| Key file theft | Argon2id + XChaCha20-Poly1305; random salt/nonce; authenticated public metadata | Weak passwords permit offline guessing; inherited filesystem permissions and backups need OS protection |
-| Compromised device | Secrets never sent to the node; sensitive buffers zeroized where feasible | Malware, terminal capture, swap and crash dumps can expose unlocked keys; zeroization is not a hardware boundary |
-| Replay/double spend | Signed chain ID and exact account nonce; ordered pending projection | Authority can equivocate; alternate histories do not have Byzantine finality |
-| Minting / overflow | Fixed genesis rules, checked arithmetic, burn accounting | No external audit or formal verification |
-| Malicious authority | All signatures and accounting independently verified | Censorship, halt and conflicting valid chains remain possible; no automatic recovery |
-| Disk corruption / crash | Transactional SQLite journal, full sync, complete replay on startup | Storage hardware/OS failure and rollback to an older valid database are not detected externally |
-| Untrusted RPC / peer | Input bounds, timeouts, loopback restrictions, local validation of blocks | Local users can spam the API, fill the pending pool, submit already signed data or observe all balances; no authentication/rate limiting |
-| Browser wallet | Opt-in same-origin host; exact numeric Host/Origin, fetch-site checks, restrictive CSP, no framing/referrer/cache; Rust signing in temporary Wasm workers | Served code, extensions and the local validating node are trusted; origin checks do not authenticate local programs or provide light-client validation |
-| Friends-testnet transport | Explicit VPN address binding, pinned genesis, shared peer credential compared with `subtle`, no redirects/proxies/DNS; read-only peer surface, request/concurrency caps | Requires an actually encrypted VPN; address range is not encryption. Operators and VPN control plane can observe metadata; this is not public Internet DoS hardening |
-| Native P2P transport | TCP/Noise with separate PeerId, numeric addresses, pinned genesis, signed tip claims, bounded messages/streams/connections, verified append-only blocks and persisted conflict quarantine | Peers see IPs, timings and public transfers. No Sybil/eclipse resistance, automatic NAT traversal, peer-store recovery or demonstrated Internet DoS resilience. A malicious authority can still halt/equivocate; an unsigned advertised height alone cannot stall production |
+| Наблюдатель цепочки | Приватности переводов нет | Адреса, связи отправителей, суммы, комиссии, nonce и история публичны |
+| Сетевой наблюдатель | Loopback для wallet API, нет телеметрии | Локальный процесс видит HTTP/тайминги/запросы; нет Tor/I2P или Dandelion++ |
+| Кража файла ключа | Argon2id + XChaCha20-Poly1305, случайные salt/nonce, аутентификация метаданных | Слабый пароль допускает перебор; нужны права ОС и защита резервных копий |
+| Взлом устройства | Секреты не отправляются узлу, чувствительные буферы по возможности обнуляются | Malware, захват терминала, swap/crash dump раскрывают активные ключи; zeroization не аппаратная граница |
+| Повтор/двойная трата | Подписанный chain ID и точный account nonce, упорядоченный pending | Authority может подписать разные истории; византийской финальности нет |
+| Эмиссия/переполнение | Фиксированная genesis, checked arithmetic, учёт сжигания | Нет внешнего аудита или формального доказательства |
+| Злонамеренный authority | Узлы независимо проверяют подписи и учёт | Возможны цензура, остановка и конфликтующие корректные ветки; автоматического восстановления нет |
+| Повреждение диска/сбой | Транзакции SQLite, FULL sync, полный replay при запуске | Отказ диска/ОС и откат к старой корректной базе не обнаруживаются внешним якорем |
+| Недоверенный RPC/peer | Ограничения ввода/таймаутов, loopback, локальная проверка блоков | Локальные программы могут спамить API, заполнять mempool и наблюдать публичные балансы; wallet API без аутентификации/rate limit |
+| Web/Desktop кошелёк | Точный Host/Origin, fetch-site, CSP, отсутствие framing/referrer/cache; Rust подпись во временных workers | Код приложения, расширения и локальный узел считаются доверенными; Origin не аутентифицирует локальный malware и не заменяет light client |
+| Friends mesh | Явный VPN адрес, genesis pin, credential сравнивается через subtle, нет redirect/proxy/DNS, read-only и лимиты | Нужен настоящий шифрованный VPN; диапазон адресов не шифрование. Операторы/VPN видят метаданные |
+| Native P2P | TCP/Noise, отдельный PeerId, числовые адреса, genesis pin, подписанные tip claims, лимиты, append-only, постоянный карантин | IP, тайминги и переводы видны peers. Нет Sybil/eclipse защиты, автоматического NAT traversal, подтверждённой Internet DoS устойчивости. Неподписанная высота сама по себе не останавливает authority |
 
-Genesis pins the network and authority. There is no key rotation, hidden fee,
-remote configuration update, arbitrary balance mutation or post-genesis mint.
-The authority key and spending key should be separate in a realistic test setup.
+Genesis закрепляет сеть и authority. Нет ротации ключей, скрытой комиссии,
+удалённого обновления настроек, произвольного изменения баланса или mint после
+genesis. Ключ authority следует отделять от кошелька с монетами.
 
-Wallet files contain version, public address, fixed KDF parameters, salt, nonce
-and ciphertext. AEAD authenticates metadata; decrypted key must match the public
-address. Files are created without overwriting existing files. No mnemonic or
-seed-export endpoint is implemented; back up the encrypted wallet and remember
-the password. There is no password recovery service.
+## Кошельки и Desktop
 
-The optional English browser wallet stores encrypted v1 containers and public
-labels/addresses in origin-local storage. Restore authenticates before saving;
-native/browser encrypted backups interoperate. Only signed data is posted to the
-node. Password fields are cleared and workers terminated after use; JavaScript,
-browser and OS copies cannot be reliably erased. Browser storage is not a backup.
-The first validated genesis is pinned; changing it requires explicit adoption in
-Settings. The default CLI-only router still rejects every browser Origin; only
-`--web-dir` enables the exact same-origin UI policy. A remote UI server is not supported.
-Explorer and address lookups expose public v1 payment metadata, including query
-timing, to the local node. History is bounded, pending transfers are volatile,
-and confirmation counts do not confer Byzantine finality. See
-[WEB_WALLET.md](docs/WEB_WALLET.md) for operation and limits.
+Файл кошелька содержит version, публичный адрес, фиксированные параметры KDF,
+salt, nonce и ciphertext. AEAD аутентифицирует метаданные; расшифрованный ключ
+должен соответствовать адресу. Существующие файлы не перезаписываются.
+Mnemonic, seed-export и восстановления пароля нет. Нужны зашифрованный файл
+и пароль; проверяйте копию до удаления локального кошелька.
 
-Privacy requires a new transaction/state design. Encrypting wallet files does not
-hide transactions. See [PRIVACY.md](PRIVACY.md) for the research decision and gate.
+Локальное хранилище содержит только encrypted v1 контейнеры, адреса и метки.
+Восстановление проверяет пароль до сохранения. Native/browser файлы совместимы.
+Узлу передаются только подписанные данные. Поля пароля очищаются и workers
+завершаются после операции, но все копии JavaScript/browser/ОС стереть надёжно
+нельзя. Хранилище приложения не является резервной копией.
 
-## Privacy design review (proposal only)
+Первая проверенная genesis закрепляет сеть. Смена chain ID требует явного
+выбора в настройках; до этого подпись отключена. Обозреватель и balance/history
+запросы раскрывают узлу публичные метаданные v1 и время обращения. История
+ограничена, mempool временный, подтверждения не дают BFT финальности.
 
-[PRIVACY_DESIGN.md](docs/PRIVACY_DESIGN.md), revision 2, records the current audit,
-public-data leaks, Monero/Orchard tradeoffs and the proposed shielded-note v2
-threat model. A new chain inherits neither upstream users nor its anonymity set;
-public Explorer access can itself reveal metadata. No private
-mechanism has been activated. Every v1 balance is reconstructible from genesis
-and public transfers even if the balance endpoint were removed. Repeated sender
-keys/nonces, address reuse, public fees and observation timing correlate payments.
+Контроллер Desktop — только loopback и same-origin. Он не принимает seed,
+spending keys или пароли. Второй экземпляр профиля блокируется ОС. Закрытие
+приложения останавливает узел; скрытие документа отключает только UI-опрос.
+В Windows профиль WebView2 хранит encrypted wallets. В macOS код использует
+изолированный WKWebsiteDataStore по постоянному идентификатору; требуется
+macOS 14+. Работа macOS пока требует отдельной проверки, в том числе backups
+и сохранения профиля. Универсальная/ad-hoc подпись не является аудитом или
+нотаризацией. [Mac](docs/MACOS.md), [приложение](docs/DESKTOP_APP.md).
 
-Additional audit limits: the encrypted wallet exposes its public address; CLI
-payment arguments reveal recipient/amount to shell history and process observers.
-The file writer uses create_new followed by write/sync, so interrupted creation
-can leave a partial file; atomic backup publication is not implemented. Seed-based
-recovery is absent. Legacy manual sync does not retain authority-equivocation evidence.
-These are tracked explicitly; none is fixed by hiding amounts alone.
+## Ключи authority, хранение и сеть
 
-The friends-testnet profile now records **observed** conflicting authority-signed
-headers during automatic peer ingestion and quarantines the node without choosing
-a branch. An evidence marker survives restart; missing observations remain a
-limitation. Legacy manual sync does not persist this evidence. There is no
-separate durable signer anti-equivocation journal, key rotation, election or safe
-standby. Only one authority process/key/database lineage may operate; reverting
-or cloning that database can fork the chain. Automatic authority mode refuses the
-funded genesis key. Authority/spending keys remain separate; running nodes retains
-the unlocked authority key in memory until shutdown. No password file, service
-credential or autostart job is installed. See [operator guide](docs/FRIENDS_TESTNET.md).
-An invited peer advertising a newer chain can stall automatic production until
-catch-up; this favors avoiding stale-prefix signing over Byzantine liveness.
+Файл wallet раскрывает публичный адрес. CLI аргументы платежа видны shell
+history и наблюдателю процессов. Создание wallet через create_new/write/sync
+может оставить неполный файл при обрыве; атомарная публикация backup не
+реализована. Seed восстановления нет. История цепочки требует сохранённых
+узлов или отдельной резервной копии.
 
-The proposed v2 must address proof/circuit soundness, binding signatures, known
-anchors, nullifier uniqueness, encrypted local notes and rescan. Fees, action
-counts and network timing remain visible. Small anonymity sets, malware, viewing
-key disclosure and an equivocating authority remain threats. Existing library
-audits do not audit ORVEXA or guarantee a later circuit version; external review
-is required before considering real funds.
+Friends mesh и native P2P сохраняют **наблюдаемые** конфликтующие authority
+заголовки и включают постоянный карантин без выбора ветки. Перезапуск его не
+снимает. Пропущенные наблюдения остаются риском; legacy manual sync не хранит
+такое evidence. Нет отдельного durable signer anti-equivocation журнала,
+ротации, выборов или безопасного standby. Должна работать одна линия процесса,
+ключа и базы authority; клонирование/откат может создать fork.
+
+Автоматический authority отказывается использовать пополненный genesis-ключ.
+Разблокированный отдельный authority-ключ остаётся в памяти до остановки.
+Парольные файлы, service credentials и OS-autostart не устанавливаются.
+Известная более новая peer-цепочка при неудачной загрузке останавливает подпись
+старого префикса; злонамеренный приглашённый peer может ухудшить доступность.
+Это выбор безопасности подписи, не обещание Byzantine liveness.
+
+## Будущая приватность
+
+[Дизайн](docs/PRIVACY_DESIGN.md) фиксирует аудит и сравнение Monero/Orchard.
+Новая цепочка не наследует пользователей upstream или его anonymity set.
+Прямой доступ к Explorer также выдаёт метаданные. Баланс v1 вычисляется из
+genesis и переводов даже без balance API. Повторные ключи/nonce, повторное
+использование адресов, публичные комиссии и тайминги связывают платежи.
+
+V2 должна проверять soundness доказательств/схем, binding signatures, anchors,
+уникальность nullifier, encrypted notes и rescan. Комиссии, число действий и
+сетевые тайминги могут оставаться видны. Малый anonymity set, malware,
+viewing key disclosure и конфликтующий authority остаются угрозами. Аудит
+библиотеки не является аудитом ORVEXA или более новой circuit версии.
+Шифрование файла кошелька не скрывает транзакции. Нужен независимый аудит
+перед обсуждением реальных средств.

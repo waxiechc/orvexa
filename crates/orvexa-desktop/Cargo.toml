@@ -14,7 +14,12 @@ tokio.workspace = true
 axum.workspace = true
 serde_json.workspace = true
 
-[target.'cfg(windows)'.dependencies]
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
 wry = { version = "=0.57.0", default-features = false, features = ["os-webview"] }
 tao = { version = "=0.37.1", default-features = false, features = ["rwh_06"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+muda = { version = "=0.17.1", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging"] }

@@ -1,107 +1,97 @@
-# ORVEXA v1 loopback HTTP JSON API
+# HTTP JSON API ORVEXA v1
 
-ORVEXA is the provisional product name. The rename only updates the human-readable
-network label in `/v1/status`; HTTP routes, schemas and protocol version remain
-unchanged. Canonical v1 addresses retain the legacy `void_test_` prefix so existing
-transactions, genesis files and encrypted wallet metadata remain compatible.
+[English](API.en.md). Схемы, версии и маршруты не переводятся: локализуется
+представление. Адреса v1 сохраняют `void_test_` для совместимости с существующими
+подписями, genesis и encrypted wallets.
 
-Origin: `http://127.0.0.1:4242`. No JSON-RPC envelope; responses are ordinary JSON.
-The default client and wallet listener accept only numeric loopback addresses.
-That local API has no authentication and is intended for a trusted local user.
-By default browser Origin headers are rejected. Opt-in `run --web-dir web/dist`
-serves Wallet/Explorer on the node's exact numeric loopback origin, accepting
-only that Origin. Host/fetch-site checks and strict CSP apply. No permissive
-CORS or key/password endpoints are added.
+Обычный узел: `http://127.0.0.1:4242`. Desktop: `http://127.0.0.1:4252`.
+Это обычный JSON без оболочки JSON-RPC. HTTP API предназначен для числового
+loopback, не публичного wallet-сервера. По умолчанию браузерные Origin запрещены;
+опциональный web host разрешает только свой точный Host/Origin с CSP.
 
-| Method | Path | Request | Response |
-| --- | --- | --- | --- |
-| GET | /v1/status | none | protocol, network, privacy, consensus, chain_id, height, tip, burned_fees, pending |
-| GET | /v1/runtime | none | enabled, role, halted, peers [{url,state,height}], produced_blocks |
-| GET | /v1/genesis | none | immutable Genesis |
-| GET | /v1/balance/{address} | checksummed test address | address, confirmed: {balance, nonce}, pending_nonce |
-| GET | /v1/history/{address} | address | newest 256 confirmed entries; {height, id, transaction}; excludes genesis allocation |
-| GET | /v1/mempool | none | ordered array of SignedTransaction; maximum 512 |
-| POST | /v1/transactions | SignedTransaction | {id} on acceptance to volatile pending pool |
-| GET | /v1/block-template | none | unsigned Block with first 128 pending transactions |
-| POST | /v1/blocks | signed Block | {id} after validation and durable SQLite commit |
-| GET | /v1/blocks?from=1 | inclusive height, default 1 | up to 8 signed blocks |
-| GET | /v1/transactions/{id} | canonical transaction hash | TransactionDetails; HTTP 404 when unknown |
-| GET | /v1/blocks/{height} | positive block height | real ID, ordered transaction_ids, confirmations, full block |
-| GET | /v1/explorer/blocks?before=9 | optional exclusive upper height | newest-first page of up to 8 BlockDetails |
-| GET | /v1/explorer/mempool | none | pending TransactionDetails with actual IDs |
-| GET | /v1/ui-state?address=... | optional v1 address | status, genesis, recent blocks, pending, optional balance/history; one lock |
+| Метод | Маршрут | Ввод и результат |
+| --- | --- | --- |
+| GET | /v1/status | protocol, network, privacy, consensus, chain_id, height, tip, burned_fees, pending |
+| GET | /v1/runtime | enabled, role, halted, peers [{url,state,height}], produced_blocks; транспортные наблюдения |
+| GET | /v1/genesis | Неизменяемая Genesis |
+| GET | /v1/balance/{address} | address, confirmed: {balance, nonce}, pending_nonce; проверяется checksum |
+| GET | /v1/history/{address} | Последние 256 подтверждённых {height,id,transaction}; начальное распределение отдельно |
+| GET | /v1/mempool | Упорядоченные SignedTransaction, максимум 512 |
+| POST | /v1/transactions | SignedTransaction → {id}; принятие во временный mempool |
+| GET | /v1/block-template | Неподписанный Block с первыми 128 pending tx |
+| POST | /v1/blocks | Подписанный Block → {id} после проверки и durable commit |
+| GET | /v1/blocks?from=1 | Высота включительно, по умолчанию 1; до 8 подписанных блоков |
+| GET | /v1/transactions/{id} | TransactionDetails по настоящему хешу; 404, если неизвестна |
+| GET | /v1/blocks/{height} | Положительная высота; ID, transaction_ids, confirmations, полный блок |
+| GET | /v1/explorer/blocks?before=9 | Верхняя высота исключительно, до 8 блоков, сначала новые |
+| GET | /v1/explorer/mempool | Pending TransactionDetails с реальными ID |
+| GET | /v1/ui-state?address=... | Согласованный status/genesis/blocks/pending и optional balance/history под одной блокировкой |
 
-TransactionDetails is `{id,status,block_height,block_id,confirmations,transaction}`.
-Pending has no block and zero confirmations; confirmed has its actual accepted
-block and `tip_height - block_height + 1` confirmations, not Byzantine finality.
-Unknown/dropped pending transactions return 404. Genesis is `/v1/genesis`, not
-a signed block at `/v1/blocks/0`. History remains the latest 256 confirmed entries.
+TransactionDetails: `{id,status,block_height,block_id,confirmations,transaction}`.
+Pending не включена в блок и имеет 0 подтверждений; confirmed содержит настоящий
+блок и `tip_height - block_height + 1` подтверждений. Это не BFT финальность.
+Исчезнувший pending возвращает 404, не успех. Genesis доступна через `/v1/genesis`,
+а не как подписанный `/v1/blocks/0`. Пагинации истории пока нет.
 
-All amounts/nonces/heights are unsigned integers; use a lossless u64 JSON parser
-in future JavaScript SDKs. IDs are 64 lowercase hex characters, signatures 128.
-The delivered browser adapter uses exact decimal strings/BigInt, including u64
-values beyond JavaScript Number precision.
-Private keys, passwords and seed material are never valid API parameters.
+Суммы, nonce и высоты — беззнаковые целые. В JavaScript нужен lossless u64 JSON
+parser; браузерный адаптер использует десятичные строки/BigInt, включая значения
+за пределом точности Number. ID — 64 lowercase hex символа, подпись — 128.
+Пароли, seed и закрытые ключи не являются параметрами API.
 
-SignedTransaction:
+Подписываются канонические байты Rust, не сериализованный JSON. Структуры:
 
-```json
-{
-  "transaction": {
-    "version": 1,
-    "chain_id": "<64 lowercase hex characters from genesis>",
-    "sender": "<void_test_ address>",
-    "recipient": "<void_test_ address>",
-    "amount": 250,
-    "fee": 2,
-    "nonce": 0
-  },
-  "signature": "<128 lowercase hex characters>"
-}
+```text
+SignedTransaction = {transaction: {version, chain_id, sender, recipient, amount, fee, nonce}, signature}
+Block = {header: {version, chain_id, height, parent, timestamp, transactions_hash}, transactions, signature}
 ```
 
-Placeholders above are schema illustrations, not valid transaction data. Use the
-Rust wallet to sign canonical bytes; signing serialized JSON will not verify.
-Block is `{header, transactions, signature}`; header is `{version, chain_id,
-height, parent, timestamp, transactions_hash}`. Timestamp is a strictly increasing
-logical counter, not wall-clock time. See ARCHITECTURE.md for signing encodings.
+Timestamp — строго растущий логический счётчик, не время по часам.
+[Канонические кодировки](../ARCHITECTURE.md).
 
-Validation/storage failures currently return HTTP 400 and `{ "error": "..." }`.
-Malformed JSON/schema errors use Axum's HTTP 400/422 text responses; oversized
-requests use HTTP 413, browser-origin requests HTTP 403, missing paths HTTP 404.
-Maximum request and client response size is 2 MiB; client timeout is 10 seconds,
-redirects and environment proxies are disabled. The history endpoint has no
-pagination yet. HTTP connections have no production-grade rate limits/timeouts
-on the server side. Peer sync is partial-progress: blocks already durably accepted
-remain accepted if a later block or pending item is invalid.
+Ошибки проверки/хранения: HTTP 400 с `{ "error": "..." }`. Неверный JSON/schema:
+400/422 Axum; большой запрос: 413; запрещённый Origin: 403; отсутствующий путь:
+404. Размер запроса/ответа клиента до 2 МиБ, таймаут клиента 10 секунд,
+redirect/proxy отключены. Нет production-grade server rate limit/timeouts.
+Уже durable принятые блоки сохраняются, если последующая страница/tx ошибочна.
 
-See [WEB_WALLET.md](WEB_WALLET.md) for browser setup, local signing,
-native-compatible encrypted backups and the two-wallet acceptance scenario.
+## Локальный контроллер Desktop
 
-## Opt-in friends-testnet peer API
+Доступен только в desktop host с теми же Host/Origin/CSP, без CORS и удалённых
+wallet secrets. Пока узел остановлен, ledger API возвращает 503.
+
+| Метод | Маршрут | Действие |
+| --- | --- | --- |
+| GET | /v1/desktop/status | Наблюдаемые phase/config/runtime/ledger, ошибки и ограничения роли |
+| POST | /v1/desktop/configure | Публичные genesis/network, peer_port, allow_private_peers, resume_on_launch; импорт только при остановленном узле |
+| POST | /v1/desktop/start | Пустой объект; запуск проверяющего full node без authority-ключа |
+| POST | /v1/desktop/stop | Пустой объект; остановка сетевой задачи и освобождение базы |
+
+В status `validator_active=false`, `rewards_supported=false`: это реальные
+границы v1, не ошибка кнопки. Карантин нельзя убрать restart/resume.
+Локализация не меняет enum/JSON ключи, а переводит их в интерфейсе.
+
+## Read-only friends mesh
 
 `run --mesh-listen <Tailscale-IP>:4243 --mesh-token-file <file> --expect-chain <id>`
-adds a separate authenticated **read-only** listener. Only GET `/v1/status`,
-`/v1/genesis`, `/v1/blocks?from=...` and `/v1/mempool` are available. No wallet,
-balance, block template, UI or mutation endpoints are exposed there. Every
-request needs `Authorization: Bearer <mesh credential>`; never put it in a URL.
-Origin headers are rejected even with a valid credential. Bad/missing credentials
-return 401; unavailable routes 404; disallowed methods 405; request/concurrency
-limits 429 (64 requests/second, 16 in flight). Native peer clients use a 3-second
-overall/2-second connect timeout and the same 2 MiB response bound.
+добавляет отдельный аутентифицированный listener. Доступны только GET
+`/v1/status`, `/v1/genesis`, `/v1/blocks?from=...`, `/v1/mempool`.
+Нет wallet/balance/template/UI/mutation endpoints. Credential передаётся в
+`Authorization: Bearer <mesh credential>`, никогда в URL. Любой Origin отвергается.
+401 — credential, 404 — маршрут, 405 — метод, 429 — лимит 64 req/s и 16 in-flight.
+Peer client: общий таймаут 3 секунды, connect 2 секунды, ответ до 2 МиБ.
 
-Peer addresses must be numeric Tailscale addresses or loopback for local tests;
-arbitrary remote hosts, DNS, LAN/public/wildcard addresses and redirects/proxies
-remain forbidden. HTTP here requires an actually encrypted private VPN; the
-server cannot infer encryption from an IP range. Default `Client::new` is unchanged;
-`Client::new_mesh` is explicit opt-in. Local Wallet/Explorer remains loopback-only.
+Разрешены числовые Tailscale IP и loopback для тестов; произвольные remote
+hosts/DNS/LAN/public/wildcard/redirect/proxy запрещены. HTTP требует настоящего
+шифрованного VPN — диапазон адреса этого не гарантирует. `Client::new_mesh`
+включается явно, default `Client::new` не изменён. Локальный Wallet остаётся loopback.
 
-Runtime `role` is authority/replica in mesh mode; `enabled=false` in default mode.
-Peer height is the highest advertised height observed after checking its genesis;
-it is an observation, not a signed/finalized checkpoint. Production pauses until
-caught up with known newer peers, including after a failed block fetch. A dishonest
-invited peer can therefore stall production; remove it only after reviewing the
-network/evidence. Runtime counters reset on restart. Observed conflicting authority
-signatures set `halted=true` and retain evidence; submit/template/commit then reject
-with HTTP 400. There is no automatic fork selection or authority election.
-[Setup and operational limits](FRIENDS_TESTNET.md).
+Mesh role — authority/replica, в default режиме enabled=false. Высота peer —
+наблюдение после проверки genesis, не подписанный checkpoint. Подпись ждёт
+известную более новую цепочку даже после неудачной загрузки; приглашённый
+злонамеренный peer может остановить производство. Runtime counters временные.
+Наблюдаемые конфликтующие authority-подписи сохраняют evidence и halted=true;
+submit/template/commit отвергаются с 400. Нет fork choice или выборов authority.
+[Ограничения](FRIENDS_TESTNET.md).
+
+Нативный P2P — отдельный бинарный транспорт TCP/Noise с ограниченными JSON
+сообщениями, а не этот публичный HTTP API. [Дизайн](P2P_DESIGN.md).

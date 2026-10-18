@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-18T10:01:09Z",
+  "generatedAt": "2026-10-18T10:34:16Z",
   "title": "Design System: ORVEXA Wallet, Explorer & Node",
   "extensions": {
     "colorMeta": {
@@ -157,6 +157,10 @@
       "site-button": {
         "displayName": "Download action",
         "purpose": "Windows preview download with a larger hit area."
+      },
+      "site-headline-ru": {
+        "displayName": "Russian release headline",
+        "purpose": "Cyrillic headline uses the existing 36–60px range without altering the English headline role."
       }
     },
     "shadows": [
@@ -257,7 +261,7 @@
       "kind": "button",
       "refersTo": "button-primary",
       "description": "Ice White action, shared by Wallet and Explorer.",
-      "html": "<button class=\"ds-button ds-primary\">Send</button>",
+      "html": "<button class=\"ds-button ds-primary\">Отправить</button>",
       "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:10px 17px;min-height:41px;border-radius:6px;border:1px solid transparent;font-family:var(--font-ui);font-size:12px;line-height:1.5;font-weight:550;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-button:focus-visible{outline:2px solid var(--ice-white);outline-offset:3px}.ds-button:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}.ds-primary{background:var(--ice-white);color:var(--midnight-navy)}.ds-primary:not(:disabled):hover{background:white}"
     },
     {
@@ -265,23 +269,15 @@
       "kind": "button",
       "refersTo": "button-secondary",
       "description": "Outlined navy alternative action.",
-      "html": "<button class=\"ds-button ds-secondary\">Receive</button>",
+      "html": "<button class=\"ds-button ds-secondary\">Получить</button>",
       "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:10px 17px;min-height:41px;border-radius:6px;border:1px solid transparent;font-family:var(--font-ui);font-size:12px;line-height:1.5;font-weight:550;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-button:focus-visible{outline:2px solid var(--ice-white);outline-offset:3px}.ds-button:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}.ds-secondary{color:var(--ice-white);background:rgba(27,43,61,.38);border-color:#3a4c61}.ds-secondary:not(:disabled):hover{background:#26384c;border-color:var(--slate-blue)}"
-    },
-    {
-      "name": "Ghost button",
-      "kind": "button",
-      "refersTo": "button-ghost",
-      "description": "Quiet supporting action.",
-      "html": "<button class=\"ds-button ds-ghost\">Latest blocks</button>",
-      "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:10px 17px;min-height:41px;border-radius:6px;border:1px solid transparent;font-family:var(--font-ui);font-size:12px;line-height:1.5;font-weight:550;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-button:focus-visible{outline:2px solid var(--ice-white);outline-offset:3px}.ds-button:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}.ds-ghost{color:var(--secondary-text);background:none;padding-left:10px;padding-right:10px}.ds-ghost:not(:disabled):hover{color:var(--ice-white);background:#1a2838}"
     },
     {
       "name": "Recipient field",
       "kind": "input",
       "refersTo": "input",
       "description": "Visible Slate Blue field border, real label and focus stroke.",
-      "html": "<label class=\"ds-field\">Recipient address<input class=\"ds-input\" type=\"text\" placeholder=\"Recipient v1 address\" autocomplete=\"off\" /></label>",
+      "html": "<label class=\"ds-field\">Адрес получателя<input class=\"ds-input\" type=\"text\" placeholder=\"Адрес v1 получателя\" autocomplete=\"off\" /></label>",
       "css": ".ds-field{display:flex;flex-direction:column;gap:9px;color:#d2e0f0;font-family:var(--font-ui);font-size:12px;font-weight:450}.ds-input{font:inherit;border:1px solid var(--slate-blue);border-radius:5px;background:#0e1925;color:var(--ice-white);min-height:44px;padding:11px 13px;min-width:0;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-input::placeholder{color:#8d9fb4;opacity:1}.ds-input:focus{outline:1px solid #8ba9c9;border-color:#8ba9c9}.ds-input:focus-visible{outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-input{transition:none}}"
     },
     {
@@ -289,7 +285,7 @@
       "kind": "nav",
       "refersTo": "navigation-active",
       "description": "Selected route with a visible dot and aria-current.",
-      "html": "<nav aria-label=\"Wallet navigation\"><a class=\"ds-nav-link\" href=\"#/dashboard\" aria-current=\"page\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg><span>Dashboard</span><span class=\"ds-nav-dot\"></span></a></nav>",
+      "html": "<nav aria-label=\"Навигация кошелька\"><a class=\"ds-nav-link\" href=\"#/dashboard\" aria-current=\"page\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg><span>Обзор</span><span class=\"ds-nav-dot\"></span></a></nav>",
       "css": ".ds-nav-link{display:flex;align-items:center;gap:12px;padding:12px 13px;min-height:45px;border:1px solid var(--borders);border-radius:7px;color:var(--ice-white);background:#162231;font-family:var(--font-ui);font-size:13px;text-decoration:none;transition:background-color 160ms ease-out,color 160ms ease-out}.ds-nav-link:hover{background:#111a25;color:var(--ice-white)}.ds-nav-link:focus-visible{outline:2px solid var(--ice-white);outline-offset:4px}.ds-nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ice-white);margin-left:auto}@media(prefers-reduced-motion:reduce){.ds-nav-link{transition:none}}"
     },
     {
@@ -297,23 +293,15 @@
       "kind": "chip",
       "refersTo": "badge-confirmed",
       "description": "Block inclusion label; not a claim of decentralized finality.",
-      "html": "<span class=\"ds-badge\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"m20 6-11 11-5-5\"/></svg>Confirmed</span>",
+      "html": "<span class=\"ds-badge\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"m20 6-11 11-5-5\"/></svg>Подтверждено</span>",
       "css": ".ds-badge{display:inline-flex;align-items:center;gap:4px;width:fit-content;padding:3px 7px;font-family:var(--font-ui);font-size:10px;line-height:1.5;border:1px solid #3a526b;border-radius:4px;color:#d2e5f9;background:rgba(51,75,101,.25);white-space:nowrap}"
-    },
-    {
-      "name": "Pending badge",
-      "kind": "chip",
-      "refersTo": "badge-pending",
-      "description": "Submission remains in the volatile mempool.",
-      "html": "<span class=\"ds-pending\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"M22 12h-4l-3 9L9 3l-3 9H2\"/></svg>Pending</span>",
-      "css": ".ds-pending{display:inline-flex;align-items:center;gap:4px;width:fit-content;padding:3px 7px;font-family:var(--font-ui);font-size:10px;line-height:1.5;border:1px solid #445264;border-radius:4px;color:#c2cfdf;background:rgba(82,109,137,.12);white-space:nowrap}"
     },
     {
       "name": "Network panel",
       "kind": "card",
       "refersTo": "network-panel",
       "description": "Quiet network facts; em dashes represent data not yet read.",
-      "html": "<section class=\"ds-network\"><div class=\"ds-panel-heading\"><h2>Connected network</h2><span class=\"ds-connection-dot\"></span></div><div class=\"ds-network-name\">ORVEXA <span>Local devnet</span></div><p class=\"ds-node-origin\">Waiting for node</p><dl class=\"ds-network-facts\"><div><dt>Block height</dt><dd>—</dd></div><div><dt>Pending transfers</dt><dd>—</dd></div><div><dt>Burned fees</dt><dd>—</dd></div></dl></section>",
+      "html": "<section class=\"ds-network\"><div class=\"ds-panel-heading\"><h2>Подключённая сеть</h2><span class=\"ds-connection-dot\"></span></div><div class=\"ds-network-name\">ORVEXA <span>Локальная тестовая сеть</span></div><p class=\"ds-node-origin\">Ожидание узла</p><dl class=\"ds-network-facts\"><div><dt>Высота цепочки</dt><dd>—</dd></div><div><dt>Ожидающие переводы</dt><dd>—</dd></div><div><dt>Сожжённые комиссии</dt><dd>—</dd></div></dl></section>",
       "css": ".ds-network{border:1px solid var(--borders);border-radius:10px;padding:25px 25px 18px;background:rgba(16,26,39,.42);color:var(--ice-white);font-family:var(--font-ui)}.ds-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:23px}.ds-panel-heading h2{margin:0;font-size:14px;font-weight:550;line-height:1.25;letter-spacing:-.015em}.ds-connection-dot{height:6px;width:6px;background:#526071;border-radius:50%}.ds-network-name{font-size:18px;font-weight:500;letter-spacing:-.02em}.ds-network-name>span{margin-left:7px;font-size:10px;padding:3px 6px;border:1px solid #34485f;border-radius:4px;color:#b8cadf;font-weight:400;vertical-align:2px;letter-spacing:0}.ds-node-origin{font-size:10px;color:var(--secondary-text);margin:8px 0 22px}.ds-network-facts{display:grid;gap:13px;margin:0 0 20px}.ds-network-facts>div{display:flex;justify-content:space-between;gap:10px}.ds-network-facts dt{font-size:11px;color:var(--secondary-text)}.ds-network-facts dd{margin:0;font-size:11px;color:#d2e1f2;font-variant-numeric:tabular-nums}"
     },
     {
@@ -321,7 +309,7 @@
       "kind": "custom",
       "refersTo": "node-operation",
       "description": "Unknown-state example: live facts remain em dashes until a successful observation.",
-      "html": "<section class=\"ds-node\"><div class=\"ds-node-heading\"><div class=\"ds-node-mark\"><svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/><rect x=\"9\" y=\"9\" width=\"6\" height=\"6\"/><path d=\"M9 2v2m6-2v2M9 20v2m6-2v2M2 9h2m-2 6h2m16-6h2m-2 6h2\"/></svg></div><div><h2>Checking node controls</h2><p>Reading the local application status.</p></div><span class=\"ds-node-role\">Verifying full node</span></div><div class=\"ds-node-facts\"><div><span>Accepted height</span><strong>—</strong></div><div><span>Connected peers</span><strong>—</strong></div><div><span>Transport</span><strong>—</strong></div></div></section>",
+      "html": "<section class=\"ds-node\"><div class=\"ds-node-heading\"><div class=\"ds-node-mark\"><svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/><rect x=\"9\" y=\"9\" width=\"6\" height=\"6\"/><path d=\"M9 2v2m6-2v2M9 20v2m6-2v2M2 9h2m-2 6h2m16-6h2m-2 6h2\"/></svg></div><div><h2>Проверка управления узлом</h2><p>Чтение состояния локального приложения.</p></div><span class=\"ds-node-role\">Проверяющий полный узел</span></div><div class=\"ds-node-facts\"><div><span>Принятая высота</span><strong>—</strong></div><div><span>Подключённые узлы</span><strong>—</strong></div><div><span>Транспорт</span><strong>—</strong></div></div></section>",
       "css": ".ds-node{border:1px solid var(--borders);border-radius:10px;padding:28px;background:rgba(16,26,39,.42);color:var(--ice-white);font-family:var(--font-ui)}.ds-node-heading{display:flex;align-items:center;gap:18px;margin-bottom:28px}.ds-node-heading h2{margin:0;font-size:23px;font-weight:550;line-height:1.25;letter-spacing:-.015em}.ds-node-heading p{margin:5px 0 0;font-size:13px;color:var(--secondary-text);line-height:1.5}.ds-node-mark{width:58px;height:58px;border:1px solid var(--steel-blue);border-radius:10px;display:grid;place-items:center;color:var(--secondary-text);flex-shrink:0}.ds-node-role{margin-left:auto;color:var(--ice-white);font-size:11px;border:1px solid var(--borders);border-radius:4px;padding:5px 9px}.ds-node-facts{display:flex;flex-wrap:wrap;gap:40px;padding:0 0 28px}.ds-node-facts>div{display:grid;gap:7px}.ds-node-facts span{color:var(--secondary-text);font-size:12px}.ds-node-facts strong{font-size:23px;font-weight:450;font-variant-numeric:tabular-nums}@media(max-width:760px){.ds-node{padding:20px}.ds-node-heading{flex-wrap:wrap;gap:12px}.ds-node-heading h2{font-size:20px}.ds-node-mark{width:45px;height:45px}.ds-node-role{margin-left:0}.ds-node-facts{gap:22px}}"
     },
     {
@@ -329,19 +317,36 @@
       "kind": "button",
       "refersTo": "site-download-button",
       "description": "Release-site link to the preview asset; hover and keyboard focus retain the established palette.",
-      "html": "<a class=\"ds-download\" href=\"https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.1/ORVEXA.exe\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"M12 3v12m-5-5 5 5 5-5M4 15v6h16v-6\"/></svg>Download for Windows</a>",
+      "html": "<a class=\"ds-download\" href=\"https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.2/ORVEXA.exe\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"M12 3v12m-5-5 5 5 5-5M4 15v6h16v-6\"/></svg>Скачать для Windows</a>",
       "css": ".ds-download{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:13px 19px;min-height:49px;border-radius:6px;font-family:var(--font,var(--font-ui));font-size:13px;font-weight:600;line-height:1.65;background:var(--ice,var(--ice-white));color:var(--navy,var(--midnight-navy));text-decoration:none;transition:background-color .16s ease-out}.ds-download:hover{background:white}.ds-download:focus-visible{outline:2px solid var(--ice,var(--ice-white));outline-offset:5px}@media(max-width:390px){.ds-download{font-size:12px;padding-left:15px;padding-right:15px}}@media(prefers-reduced-motion:reduce){.ds-download{transition:none}}"
+    },
+    {
+      "name": "Language selector",
+      "kind": "input",
+      "refersTo": "locale-picker",
+      "description": "Native RU/EN selection with a translated accessible label; Russian is the default.",
+      "html": "<label class=\"ds-locale\"><span class=\"ds-sr-only\">Язык</span><select aria-label=\"Язык\"><option value=\"ru\" selected>RU</option><option value=\"en\">EN</option></select></label>",
+      "css": ".ds-locale select{background:var(--midnight-navy);color:var(--ice-white);border:1px solid var(--slate-blue);border-radius:5px;padding:8px 5px;min-height:38px;font-family:var(--font-ui);font-size:12px;line-height:1.5;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-locale select:focus{outline:1px solid #8ba9c9;border-color:#8ba9c9}.ds-locale select:focus-visible{outline-offset:4px}.ds-sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(prefers-reduced-motion:reduce){.ds-locale select{transition:none}}"
+    },
+    {
+      "name": "Localized native file input",
+      "kind": "input",
+      "refersTo": "file-picker",
+      "description": "Transparent native input preserves chooser and keyboard behavior; app-language labels are visible while filenames stay unchanged.",
+      "html": "<label class=\"ds-file-field\">Файл genesis<span class=\"ds-file-picker\"><input type=\"file\" accept=\".json,application/json\"/><span class=\"ds-file-button\" aria-hidden=\"true\">Выбрать файл</span><span class=\"ds-file-name\" aria-hidden=\"true\">Файл не выбран</span></span></label>",
+      "css": ".ds-file-field{display:flex;flex-direction:column;gap:9px;color:var(--ice-white);font-family:var(--font-ui);font-size:12px;font-weight:450}.ds-file-picker{position:relative;display:flex;align-items:center;gap:12px;min-width:0;margin-top:8px;padding:9px;border:1px solid var(--slate-blue);border-radius:5px;background:#0e1925;font-size:12px}.ds-file-picker input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}.ds-file-picker:focus-within{outline:2px solid var(--ice-white);outline-offset:3px}.ds-file-button{border:1px solid var(--slate-blue);padding:4px 8px;border-radius:4px;flex-shrink:0}.ds-file-name{min-width:0;overflow-wrap:anywhere;color:var(--secondary-text)}"
     }
   ],
   "narrative": {
     "northStar": "ORVEXA local wallet workspace",
-    "overview": "An English operating interface for testers creating wallets, transferring\ntest atoms and running verifying nodes. A release-download site introduces the\nworking desktop preview and its current network boundaries. The confirmed brief is premium,\nrestrained, technological and minimal: a cold navy field, clear system type,\ngeometric identity, thin borders and space around important actions.\n\nThe approved eye/flower symbol and ORVEXA wordmark anchor every route. Current\nSVGs in `web/public/brand/` are path-based reconstructions traced from\n`ORVEXA.png`; they contain no embedded bitmap and are not an original vector\nmaster. Preserve these geometries and proportions when extending the interface.",
+    "overview": "Russian is the default language, with an explicit English option. Testers create\nwallets, transfer test atoms and run verifying nodes. A release-download site\nintroduces the working desktop preview and its current network boundaries. The\nconfirmed brief is premium,\nrestrained, technological and minimal: a cold navy field, clear system type,\ngeometric identity, thin borders and space around important actions.\n\nThe approved eye/flower symbol and ORVEXA wordmark anchor every route. Current\nSVGs in `web/public/brand/` are path-based reconstructions traced from\n`ORVEXA.png`; they contain no embedded bitmap and are not an original vector\nmaster. Preserve these geometries and proportions when extending the interface.",
     "keyCharacteristics": [
       "Obsidian-to-navy background with Ice White actions and identity.",
       "Open transaction rows, exact integers and compact network facts.",
       "Visible connection, pending, confirmed, unavailable and empty states.",
       "One visual language across Wallet, Explorer, Node controls and release downloads.",
-      "Actual application captures and explicit preview/planned labels on the site."
+      "Actual application captures and explicit preview/planned labels on the site.",
+      "Presentation translation without rewriting names, addresses or protocol data."
     ],
     "rules": [
       {
@@ -357,13 +362,14 @@
     ],
     "dos": [
       "**Do** preserve the approved eye/flower paths and ORVEXA wordmark proportions.",
-      "**Do** use English UI copy, whole test atoms and real node-backed values.",
+      "**Do** default to Russian, retain an English option and show real whole test atoms.",
       "**Do** keep Transparent v1, public addresses and amounts explicit.",
       "**Do** distinguish pending submission, block inclusion and last known state.",
       "**Do** retain keyboard focus, mobile drawer behavior and reduced-motion support.",
       "**Do** show encrypted-file backup and restore; v1 has no seed phrase.",
       "**Do** distinguish a verifying full node from block authority and reward roles.",
-      "**Do** pair release downloads with actual app evidence and current preview limits."
+      "**Do** pair release downloads with actual app evidence and current preview limits.",
+      "**Do** translate presentation and accessible labels while preserving user and protocol data."
     ],
     "donts": [
       "**Don't** replace the approved logo with another eye, star or emblem.",
@@ -372,7 +378,8 @@
       "**Don't** display passwords, private keys or invented recovery phrases in UI examples.",
       "**Don't** imply automatic mining, a faucet or decentralized finality.",
       "**Don't** use promotional graphics or illustrative data as real ledger state.",
-      "**Don't** present stale node observations as live or a preview as a public network."
+      "**Don't** present stale node observations as live or a preview as a public network.",
+      "**Don't** advertise a verified Mac download or measured efficiency without runtime evidence."
     ]
   }
 }

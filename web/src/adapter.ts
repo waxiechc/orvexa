@@ -1,4 +1,5 @@
 import { parseNodeJson } from './lossless';
+import { numberLocale } from './i18n';
 export { parseNodeJson };
 export type UInt = string;
 export interface Status { protocol: UInt; network: string; privacy: string; consensus: string; chain_id: string; height: UInt; tip: string; burned_fees: UInt; pending: UInt }
@@ -65,8 +66,10 @@ export class TransparentV1Adapter implements LedgerReader {
   commit = async (signed: string) => parseNodeJson<{ id: string }>(await requestRaw('/v1/blocks', signed));
 }
 export const node = new TransparentV1Adapter();
-export const atoms = (value: string | bigint) => BigInt(value).toLocaleString('en-US');
+export const atoms = (value: string | bigint) => BigInt(value).toLocaleString(numberLocale());
 export const short = (value: string, length = 7) => value.length > length * 2 + 3 ? `${value.slice(0, length)}…${value.slice(-length)}` : value;
+// Store canonical diagnostics in state; translate only where rendered so an
+// existing message follows the language switch without retrying the operation.
 export const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 export function availableBalance(confirmed: string, address: string, pool: SignedTransfer[]): bigint {
   return pool.reduce((balance, signed) => {

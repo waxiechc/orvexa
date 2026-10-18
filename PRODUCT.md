@@ -38,7 +38,11 @@ the assigned authority and other reachable nodes continue. This does not activat
 
 Preserve the eye/flower mark and ORVEXA wordmark in ORVEXA.png. The user specified
 the navy/obsidian palette, restrained geometry and white logo, with no purple,
-red, neon or decorative glow. English UI was explicitly confirmed.
+red, neon or decorative glow. The current request supersedes the earlier English
+preference: Russian is now the default throughout the app and download site,
+with an explicit English option. User labels and protocol data are never translated.
+macOS support uses system WKWebView and a separate universal build script;
+a verified Mac download must not be advertised before actual Mac validation.
 
 ## Evidence on Hand
 

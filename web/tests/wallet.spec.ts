@@ -72,6 +72,8 @@ async function capture(page: Page, path: string) {
   await page.screenshot({ path, fullPage: true });
 }
 
+test.beforeEach(async ({ context }) => { await context.addInitScript(() => { try { if (!localStorage.getItem('orvexa.locale')) localStorage.setItem('orvexa.locale', 'en'); } catch { /* about:blank has no storage origin */ } }); });
+
 test.beforeAll(async () => {
   mkdirSync(resolve(root, 'demo-data'), { recursive: true });
   directory = mkdtempSync(resolve(root, 'demo-data/web-e2e-'));

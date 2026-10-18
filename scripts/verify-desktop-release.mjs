@@ -15,6 +15,7 @@ const { chromium } = require('@playwright/test');
 assert.equal(process.platform, 'win32', 'This release check requires Windows');
 assert.ok(process.argv[2], 'Pass the packaged release directory');
 const release = resolve(process.argv[2]);
+const metadata = JSON.parse(await readFile(join(release, 'build.json'), 'utf8'));
 await mkdir(join(root, 'demo-data'), { recursive: true });
 const proof = await mkdtemp(join(root, 'demo-data/desktop-release-'));
 const extracted = join(proof, 'extracted');
@@ -60,7 +61,7 @@ try {
   site = createServer(async (req, res) => {
     try {
       const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-      const file = resolve(docs, `.${pathname === '/' ? '/index.html' : pathname}`);
+      const file = resolve(docs, `.${pathname.endsWith('/') ? pathname + 'index.html' : pathname}`);
       if (!file.startsWith(docs + sep)) { res.writeHead(403).end(); return; }
       const data = await readFile(file);
       const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
@@ -71,24 +72,28 @@ try {
   const siteOrigin = `http://127.0.0.1:${site.address().port}`;
   browser = await chromium.launch(); const page = await browser.newPage();
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  const responses = []; page.on('response', r => { if (r.status() >= 400) responses.push(`${r.status()} ${r.url()}`); });
+  const responses = []; page.on('response', r => { if (r.url().startsWith(siteOrigin) && r.status() >= 400) responses.push(`${r.status()} ${r.url()}`); });
   await page.goto(`${origin}/#/node`);
-  await page.getByRole('heading', { name: 'Connect your node' }).waitFor();
+  await page.getByRole('heading', { name: 'Подключите свой узел' }).waitFor();
   // A stopped full node intentionally returns 503 for ledger queries.
   responses.length = 0;
   await page.goto(siteOrigin);
-  await page.getByRole('heading', { name: /Your wallet.*Your node.*Your network/ }).waitFor();
-  assert.ok((await page.locator('#exe-size').innerText()).includes('MB'));
+  await page.getByRole('heading', { name: /Ваш кошелёк.*Ваш узел.*Ваша сеть/ }).waitFor();
+  await page.waitForFunction(() => document.querySelector('#exe-size').textContent.includes('МБ'));
   for (const [name, width, height] of [['site-desktop', 1440, 1000], ['site-mobile', 390, 844]]) {
     await page.setViewportSize({ width, height });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Horizontal overflow');
-    await page.screenshot({ path: join(proof, `${name}.png`), fullPage: true });
+    if (process.env.ORVEXA_CAPTURE !== '0') await page.screenshot({ path: join(proof, `${name}.png`), fullPage: true });
   }
   await page.keyboard.press('Tab');
-  assert.equal(await page.locator(':focus').innerText(), 'Skip to content');
+  assert.equal(await page.locator(':focus').innerText(), 'Перейти к содержимому');
   const downloads = await page.locator('[data-download]').evaluateAll(links => links.map(link => link.href));
   assert.equal(downloads.length, 3);
-  assert.ok(downloads.every(link => link.includes('/releases/download/v0.1.0-desktop-preview.1/')));
+  assert.ok(downloads.every(link => link.includes(`/releases/download/v${metadata.version}/`)));
+  await page.getByRole('link', { name: 'English language' }).click();
+  await page.getByRole('heading', { name: /Your wallet.*Your node.*Your network/ }).waitFor();
+  await page.waitForFunction(() => document.querySelector('#exe-size').textContent.includes('MB'));
+  assert.equal(await page.locator('html').getAttribute('lang'), 'en');
   assert.deepEqual(errors, []); assert.deepEqual(responses, []);
   const result = { result: 'PASS', extracted_exe: true, embedded_wasm: true, embedded_licenses: true,
     checksum_match: true, site_desktop_mobile: true, no_horizontal_overflow: true, screenshots: proof,
