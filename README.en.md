@@ -37,7 +37,7 @@ Data lives in `%LOCALAPPDATA%\ORVEXA`, separately from the EXE. No operator
 wallets, peer identities, live genesis or chain databases ship in the app.
 See [the desktop guide](docs/DESKTOP_APP.md) for backups, ports and limitations.
 
-<img src="docs/assets/app-preview.png" alt="Actual ORVEXA native Windows app with public network setup and node controls" width="100%">
+<img src="docs/assets/app-overview.png" alt="ORVEXA preview 4 on a Mac: wallet overview, network state and recent activity" width="100%">
 
 ## What works
 

@@ -46,7 +46,7 @@ ORVEXA — исследовательский проект криптовалю�
 bash scripts/package-macos.sh universal
 ```
 
-<img src="docs/assets/app-preview.png" alt="Настоящее приложение ORVEXA с управлением локальным узлом" width="100%">
+<img src="docs/assets/app-overview.png" alt="ORVEXA preview 4 на Mac: обзор кошелька, состояние сети и последние операции" width="100%">
 
 ## Что реализовано
 
