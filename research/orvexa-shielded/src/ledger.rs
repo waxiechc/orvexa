@@ -14,7 +14,7 @@ use orchard::{
 };
 use sha2::{Digest, Sha256};
 use shardtree::{store::memory::MemoryShardStore, ShardTree};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub const CHAIN_ID_DOMAIN: &[u8] = b"ORVEXA/chain-id/v2";
 pub const BLOCK_DOMAIN: &[u8] = b"ORVEXA/shielded-block/v2";
@@ -184,6 +184,8 @@ pub struct Ledger {
     leaves: u64,
     roots: VecDeque<[u8; 32]>,
     nullifiers: HashSet<[u8; 32]>,
+    /// txid → height of the block that included it.
+    txids: HashMap<[u8; 32], u64>,
     burned: u64,
 }
 
@@ -230,6 +232,7 @@ impl Ledger {
             leaves: 0,
             roots: VecDeque::new(),
             nullifiers: HashSet::new(),
+            txids: HashMap::new(),
             burned: 0,
         };
         // Genesis spends nothing; its dummy-spend nullifiers are still recorded
@@ -343,6 +346,7 @@ impl Ledger {
     pub fn commit(&mut self, v: Validated) {
         let mut added = 0;
         for env in &v.envs {
+            self.txids.insert(env.txid(), v.height);
             for action in env.bundle.actions() {
                 let leaf = MerkleHashOrchard::from_cmx(action.cmx());
                 // Prototype: every leaf is marked so test wallets can obtain witnesses.
@@ -395,6 +399,10 @@ impl Ledger {
     }
     pub fn params(&self) -> &Params {
         &self.params
+    }
+    /// Height of the block that included `txid`, if any.
+    pub fn tx_height(&self, txid: &[u8; 32]) -> Option<u64> {
+        self.txids.get(txid).copied()
     }
     pub fn nullifier_set(&self) -> impl Iterator<Item = &[u8; 32]> {
         self.nullifiers.iter()

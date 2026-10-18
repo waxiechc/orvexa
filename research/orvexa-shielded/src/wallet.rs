@@ -23,6 +23,10 @@ pub enum WalletError {
     Overflow,
     InsufficientFunds,
     MissingWitness,
+    /// A watch-only wallet cannot spend.
+    ViewOnly,
+    /// A public payment must match the consent the user gave.
+    ConsentMismatch,
     Builder(String),
 }
 

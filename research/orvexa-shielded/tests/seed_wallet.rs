@@ -82,14 +82,14 @@ fn bip39_matches_official_vectors() {
         let m = bip0039::Mnemonic::<bip0039::English>::from_entropy(hex::decode(entropy).unwrap()).unwrap();
         assert_eq!(m.phrase(), phrase);
         assert_eq!(hex::encode(m.to_seed("TREZOR")), seed);
-        assert_eq!(SeedWallet::from_phrase(phrase, 0).unwrap().phrase().as_str(), phrase);
+        assert_eq!(SeedWallet::from_phrase(phrase, 0).unwrap().phrase().unwrap().as_str(), phrase);
     }
 }
 
 #[test]
 fn phrase_round_trip_and_rejections() {
     let w = SeedWallet::generate();
-    let phrase = w.phrase();
+    let phrase = w.phrase().unwrap();
     assert_eq!(phrase.split(' ').count(), 24);
     let messy = format!("  {}\n", phrase.replace(' ', "   "));
     let restored = SeedWallet::from_phrase(&messy, 0).unwrap();
@@ -129,8 +129,8 @@ fn p4_01_diversified_addresses_one_scan() {
         let tx = n.a.transfer(chain, *to, 10_000 * (i as u64 + 1), 10, 20).unwrap();
         n.mine(vec![tx]);
     }
-    assert_eq!(n.b.balance(), 60_000, "one viewing key finds every diversified address");
-    assert_eq!(n.a.balance(), SUPPLY - 60_000 - 30);
+    assert_eq!(n.b.balance().unwrap(), 60_000, "one viewing key finds every diversified address");
+    assert_eq!(n.a.balance().unwrap(), SUPPLY - 60_000 - 30);
     assert_eq!(n.a.pending(), 0);
 }
 
@@ -144,15 +144,15 @@ fn p4_02_tampered_ciphertext_and_strangers_credit_nothing() {
         bytes[55 + i * 884 + 160 + 50] ^= 1;
     }
     let tampered = Envelope::decode(&bytes).unwrap();
-    let mut b_copy = SeedWallet::from_phrase(&n.b.phrase(), 0).unwrap();
+    let mut b_copy = SeedWallet::from_phrase(&n.b.phrase().unwrap(), 0).unwrap();
     n.rescan(&mut b_copy);
     b_copy.scan_block(n.ledger.height() + 1, &[tampered]).unwrap();
-    assert_eq!(b_copy.balance(), 0, "a modified ciphertext is not credited");
+    assert_eq!(b_copy.balance().unwrap(), 0, "a modified ciphertext is not credited");
 
     let mut stranger = SeedWallet::generate();
     n.mine(vec![tx]);
     n.rescan(&mut stranger);
-    assert_eq!(stranger.balance(), 0);
+    assert_eq!(stranger.balance().unwrap(), 0);
     assert!(stranger.notes.is_empty());
 }
 
@@ -169,19 +169,19 @@ fn p4_03_restore_on_another_device_and_rescan() {
     n.mine(vec![t3]);
 
     for original in [&n.a, &n.b] {
-        let mut restored = SeedWallet::from_phrase(&original.phrase(), 0).unwrap();
+        let mut restored = SeedWallet::from_phrase(&original.phrase().unwrap(), 0).unwrap();
         n.rescan(&mut restored);
-        assert_eq!(restored.balance(), original.balance());
+        assert_eq!(restored.balance().unwrap(), original.balance().unwrap());
         assert_eq!(restored.spent_nullifiers(), original.spent_nullifiers());
         assert_eq!(restored.notes.len(), original.notes.len());
         assert_eq!(restored.anchor().unwrap().to_bytes(), n.ledger.anchor().to_bytes());
     }
-    assert_eq!(n.b.balance(), 250_000 - 70_000 - 10 + 1_234);
+    assert_eq!(n.b.balance().unwrap(), 250_000 - 70_000 - 10 + 1_234);
     assert!(n.b.notes.iter().any(|x| x.scope == orchard::keys::Scope::Internal), "change was found");
-    assert_eq!(n.a.balance() + n.b.balance() + n.ledger.burned(), SUPPLY);
+    assert_eq!(n.a.balance().unwrap() + n.b.balance().unwrap() + n.ledger.burned(), SUPPLY);
 
     // The restored wallet can spend.
-    let mut restored = SeedWallet::from_phrase(&n.b.phrase(), 0).unwrap();
+    let mut restored = SeedWallet::from_phrase(&n.b.phrase().unwrap(), 0).unwrap();
     n.rescan(&mut restored);
     let spend = restored.transfer(chain, n.a.address(), 100, 10, 20).unwrap();
     n.mine(vec![spend]);
@@ -207,7 +207,7 @@ fn p4_05_06_encrypted_file() {
     }
 
     let (unlocked, _) = seed_file::unlock(&path, password).unwrap();
-    assert_eq!(unlocked.phrase().as_str(), TREZOR[1].1);
+    assert_eq!(unlocked.phrase().unwrap().as_str(), TREZOR[1].1);
     assert_eq!(seed_file::unlock(&path, "correct horse battery stapler").err(), Some(SeedFileError::Decrypt));
 
     let original = std::fs::read(&path).unwrap();
@@ -255,25 +255,25 @@ fn p4_07_secrets_never_printed() {
 fn p4_08_pending_expiry_and_no_double_credit() {
     let mut n = SeedNet::new();
     let chain = n.ledger.chain_id();
-    let total = n.a.balance();
+    let total = n.a.balance().unwrap();
     // Sent but never mined, expires after 2 blocks.
     let lost = n.a.transfer(chain, n.b.address(), 1_000, 10, 2).unwrap();
     assert!(n.a.pending() > 0);
-    assert_eq!(n.a.balance() + n.a.pending(), total, "pending is separate from confirmed");
+    assert_eq!(n.a.balance().unwrap() + n.a.pending(), total, "pending is separate from confirmed");
     drop(lost);
     n.mine(vec![]);
     n.mine(vec![]);
     assert!(n.a.pending() > 0, "still includable at its expiry height");
     n.mine(vec![]);
     assert_eq!(n.a.pending(), 0, "expired transfer releases its notes");
-    assert_eq!(n.a.balance(), total);
+    assert_eq!(n.a.balance().unwrap(), total);
 
     // Scanning a block twice is refused, so nothing is credited twice.
     let tx = n.a.transfer(chain, n.b.address(), 2_000, 10, 20).unwrap();
     n.mine(vec![tx.clone()]);
     let h = n.ledger.height();
     assert_eq!(n.b.scan_block(h, &[tx]), Err(SeedError::OutOfOrder { expected: h + 1, got: h }));
-    assert_eq!(n.b.balance(), 2_000);
+    assert_eq!(n.b.balance().unwrap(), 2_000);
 }
 
 #[test]

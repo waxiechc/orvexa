@@ -34,6 +34,8 @@ pub enum SeedFileError {
     Format,
     /// Wrong password or modified file; deliberately indistinguishable.
     Decrypt,
+    /// Watch-only wallets have no seed to store.
+    NoSeed,
     Io(String),
 }
 
@@ -81,6 +83,7 @@ fn derive(password: &str, salt: &[u8; 16]) -> Zeroizing<[u8; 32]> {
 
 /// Encrypts the wallet's seed. Never overwrites `path`.
 pub fn create(path: &Path, wallet: &SeedWallet, chain_id: [u8; 32], password: &str) -> Result<Metadata, SeedFileError> {
+    let entropy = wallet.entropy().ok_or(SeedFileError::NoSeed)?;
     if password.chars().count() < MIN_PASSWORD_CHARS {
         return Err(SeedFileError::WeakPassword);
     }
@@ -110,7 +113,7 @@ pub fn create(path: &Path, wallet: &SeedWallet, chain_id: [u8; 32], password: &s
     let key = derive(password, &salt);
     let cipher = XChaCha20Poly1305::new_from_slice(key.as_ref()).expect("32-byte key");
     let ciphertext = cipher
-        .encrypt(XNonce::from_slice(&nonce), Payload { msg: wallet.entropy(), aad: &aad })
+        .encrypt(XNonce::from_slice(&nonce), Payload { msg: entropy, aad: &aad })
         .map_err(|_| SeedFileError::Decrypt)?;
     let body = serde_json::to_vec_pretty(&Container { metadata: metadata.clone(), ciphertext: hex::encode(ciphertext) })
         .expect("plain struct");

@@ -11,6 +11,7 @@
 //!
 //! Not in scope: networking, mempool, block authorship/consensus, RPC. This crate never touches the transparent v1 protocol.
 
+pub mod disclosure;
 pub mod envelope;
 pub mod keys;
 pub mod ledger;
