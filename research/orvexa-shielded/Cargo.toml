@@ -1,0 +1,27 @@
+[package]
+name = "orvexa-shielded"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "P2/P3 prototype of the ORVEXA private v2 ledger rules over orchard 0.16.0 (Ironwood v3). Not part of the v1 workspace and not a node."
+
+# Empty workspace table: never joins or edits the v1 Cargo.lock.
+[workspace]
+
+[dependencies]
+orchard = { version = "=0.16.0", default-features = false, features = ["std", "circuit", "multicore"] }
+zcash_note_encryption = "=0.5.1"
+shardtree = "0.8"
+incrementalmerkletree = "0.9"
+nonempty = { version = "0.11", default-features = false }
+rand = { version = "0.10", features = ["std", "sys_rng"] }
+sha2 = "0.10.9"
+subtle = "2.6"
+
+# Proving is ~10x slower unoptimized; tests build dependencies with optimizations.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.test]
+opt-level = 3
