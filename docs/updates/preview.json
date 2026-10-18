@@ -1,0 +1,21 @@
+{
+  "format": "orvexa-update",
+  "version": 1,
+  "channel": "preview",
+  "release": "0.1.0-desktop-preview.5",
+  "expires": 1794941845,
+  "notes_ru": "Приватная сеть v2: кошелёк из 24 слов, приватные переводы, квитанции, ключи просмотра, подключение к сети по файлу. Автообновление и новые выпадающие меню.",
+  "notes_en": "Private network v2: 24-word wallet, private transfers, receipts, viewing keys, joining a network by file. Self-update and new dropdown menus.",
+  "files": {
+    "macos-universal": {
+      "url": "https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/ORVEXA-macOS-universal.zip",
+      "sha256": "74406ff631cc728242619c777797b5a990d311f46c6df7ef146a064a9bc9ae7f",
+      "bytes": 19796213
+    },
+    "windows-x64": {
+      "url": "https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/ORVEXA.exe",
+      "sha256": "10c69998cb6a0a498dad52fa251408ca2fea3d10f9b5f68abdfdb2c41834fa03",
+      "bytes": 22206464
+    }
+  }
+}

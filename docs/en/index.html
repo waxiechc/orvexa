@@ -19,14 +19,14 @@
 
 <section class="opening" aria-labelledby="headline">
 <div>
-<span class="pill"><span class="dot" aria-hidden="true"></span>Desktop preview 4 · macOS and Windows</span>
+<span class="pill"><span class="dot" aria-hidden="true"></span>Desktop preview 5 · macOS and Windows</span>
 <h1 id="headline">Your wallet.<br>Your node.<br><span>Your network.</span></h1>
 <p class="intro">A wallet, block explorer and verifying node, together in one ORVEXA desktop app. Keep your keys local. Help carry the chain.</p>
 <div class="download-actions">
-<a class="button primary" data-platform="mac" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA-macOS-universal.zip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg><span>Download for macOS<small>Apple Silicon and Intel · macOS 14+</small></span></a>
-<a class="button secondary" data-platform="windows" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA.exe"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg><span>Download for Windows<small>Windows 10/11 x64 · <span data-size="exe">portable EXE</span></small></span></a>
+<a class="button primary" data-platform="mac" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/ORVEXA-macOS-universal.zip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg><span>Download for macOS<small>Apple Silicon and Intel · macOS 14+</small></span></a>
+<a class="button secondary" data-platform="windows" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/ORVEXA.exe"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg><span>Download for Windows<small>Windows 10/11 x64 · <span data-size="exe">portable EXE</span></small></span></a>
 </div>
-<p class="download-meta">Free and open source. <a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.4">What’s new in preview 4</a></p>
+<p class="download-meta">Free and open source. <a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.5">What’s new in preview 5</a></p>
 <div class="truth"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><div><strong>Transparent testnet preview.</strong><p>Addresses and amounts are public in v1. Test atoms only, with no monetary value. Private payments, validator consensus and rewards are not enabled.</p></div></div>
 </div>
 <figure class="capture"><div class="capture-frame"><img src="../assets/app-overview.png" alt="ORVEXA on a Mac: wallet overview with confirmed balance, network state and recent activity, interface in Russian" width="1960" height="1122" fetchpriority="high"></div><figcaption>Captured from preview 4 on a Mac with a local test network, shown in Russian. No simulated balances or network statistics.</figcaption></figure>
@@ -59,12 +59,12 @@
 </section>
 
 <section class="section direction" id="direction" aria-labelledby="privacy-title">
-<div class="section-head"><span class="eyebrow">The direction</span><h2 id="privacy-title">Private by default.<br>Open by your choice.</h2><p>This is the goal for the next ledger, not a property of the current preview. Amounts and balances should stay private, with deliberate disclosure when their owner chooses.</p></div>
+<div class="section-head"><span class="eyebrow">The direction</span><h2 id="privacy-title">Private by default.<br>Open by your choice.</h2><p>The main v1 network is transparent. In the separate v2 test network inside the app, amounts, addresses and payment links are already hidden on the chain and can be disclosed only by their owner. Both networks use test coins.</p></div>
 <div class="roadmap">
-<div class="roadmap-row"><span>Private transfers &amp; balances</span><span class="planned">Planned</span></div>
-<div class="roadmap-row"><span>Optional public payments</span><span class="planned">Planned</span></div>
-<div class="roadmap-row"><span>Share one payment or view-only access</span><span class="planned">Planned</span></div>
-<div class="roadmap-row"><span>Seed recovery &amp; local rescan</span><span class="planned">Planned</span></div>
+<div class="roadmap-row"><span>Private transfers &amp; balances</span><span class="planned">v2 test network</span></div>
+<div class="roadmap-row"><span>Optional public payments</span><span class="planned">v2 test network</span></div>
+<div class="roadmap-row"><span>Share one payment or view-only access</span><span class="planned">v2 test network</span></div>
+<div class="roadmap-row"><span>Seed recovery &amp; local rescan</span><span class="planned">v2 test network</span></div>
 <div class="roadmap-row"><span>Validator quorum &amp; consensus rewards</span><span class="planned">Planned</span></div>
 <p>Already public data cannot be made secret retroactively. Disclosed viewing information cannot be erased from someone else’s copy.</p>
 <a class="text-link" href="https://github.com/waxiechc/orvexa/blob/main/docs/PLATFORM_PLAN.md">Read the staged implementation plan <span aria-hidden="true">↗</span></a>
@@ -80,16 +80,16 @@ cargo build --release --locked \
 </section>
 
 <section class="section" id="download" aria-labelledby="download-title">
-<div class="downloads-head"><div class="section-head"><span class="eyebrow">Desktop preview 4</span><h2 id="download-title">Start with the app.</h2><p>Native apps for macOS and Windows. Real local node. Open source.</p></div></div>
+<div class="downloads-head"><div class="section-head"><span class="eyebrow">Desktop preview 5</span><h2 id="download-title">Start with the app.</h2><p>Native apps for macOS and Windows. Real local node. Open source.</p></div></div>
 <div class="platforms">
 <article class="platform" data-platform-card="mac"><div class="platform-top"><div><h3>macOS</h3><p class="platform-sub">Universal app · <span data-size="mac">ZIP</span></p></div><span class="tag">Apple Silicon and Intel</span></div>
 <ul><li>macOS 14 Sonoma or later</li><li>System WebKit, no bundled browser engine</li><li>Not notarized: on first launch, allow it in System Settings → Privacy &amp; Security</li></ul>
-<div class="platform-actions"><a class="button primary" data-platform="mac" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA-macOS-universal.zip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>Download for macOS</a><a class="text-link" href="https://github.com/waxiechc/orvexa/blob/main/docs/MACOS.md">Mac guide <span aria-hidden="true">↗</span></a></div></article>
+<div class="platform-actions"><a class="button primary" data-platform="mac" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/ORVEXA-macOS-universal.zip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>Download for macOS</a><a class="text-link" href="https://github.com/waxiechc/orvexa/blob/main/docs/MACOS.md">Mac guide <span aria-hidden="true">↗</span></a></div></article>
 <article class="platform" data-platform-card="windows"><div class="platform-top"><div><h3>Windows</h3><p class="platform-sub">Portable EXE · <span data-size="exe">x64</span></p></div><span class="tag">Windows 10/11 x64</span></div>
 <ul><li>No installer: run ORVEXA.exe</li><li>Requires the system Microsoft WebView2 runtime</li><li>The complete ZIP adds instructions and license notices</li></ul>
-<div class="platform-actions"><a class="button secondary" data-platform="windows" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA.exe"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>Download ORVEXA.exe</a><a class="text-link" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/ORVEXA-Desktop-Windows-x64.zip">Complete ZIP <span aria-hidden="true">↓</span></a></div></article>
+<div class="platform-actions"><a class="button secondary" data-platform="windows" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/ORVEXA.exe"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>Download ORVEXA.exe</a><a class="text-link" href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/ORVEXA-Desktop-Windows-x64.zip">Complete ZIP <span aria-hidden="true">↓</span></a></div></article>
 </div>
-<div class="checksums"><a href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/SHA256SUMS-macOS.txt">SHA-256 for macOS <span aria-hidden="true">↗</span></a><a href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.4/SHA256SUMS.txt">SHA-256 for Windows <span aria-hidden="true">↗</span></a><a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.4">All release files <span aria-hidden="true">↗</span></a></div>
+<div class="checksums"><a href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/SHA256SUMS-macOS.txt">SHA-256 for macOS <span aria-hidden="true">↗</span></a><a href="https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.5/SHA256SUMS.txt">SHA-256 for Windows <span aria-hidden="true">↗</span></a><a href="https://github.com/waxiechc/orvexa/releases/tag/v0.1.0-desktop-preview.5">All release files <span aria-hidden="true">↗</span></a></div>
 </section>
 </main>
 <footer class="site-footer"><a href="./" class="brand" aria-label="ORVEXA home"><img src="../brand/orvexa-symbol.svg" width="25" height="28" alt=""><img src="../brand/orvexa-wordmark.svg" width="104" height="16" alt="ORVEXA"></a><p>Research software · Transparent v1 · No real funds<br>ORVEXA is a provisional project name.</p><div><a href="https://github.com/waxiechc/orvexa">Source</a><a href="https://github.com/waxiechc/orvexa/blob/main/THREAT_MODEL.md">Security model</a><a href="https://github.com/waxiechc/orvexa/blob/main/LICENSE">MIT license</a></div></footer>

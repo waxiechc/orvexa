@@ -5,7 +5,7 @@
 # The EXE is cross-compiled: run it on real Windows before handing it out.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-version="${ORVEXA_VERSION:-0.1.0-desktop-preview.4}"
+version="${ORVEXA_VERSION:-0.1.0-desktop-preview.5}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]] || { echo 'Invalid version' >&2; exit 1; }
 target=x86_64-pc-windows-msvc
 

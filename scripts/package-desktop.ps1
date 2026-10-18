@@ -1,4 +1,4 @@
-param([switch]$SkipBuild, [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.1.0-desktop-preview.4')
+param([switch]$SkipBuild, [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.1.0-desktop-preview.5')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $projectRoot = Split-Path -Parent $PSScriptRoot

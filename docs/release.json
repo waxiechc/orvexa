@@ -1,7 +1,7 @@
 {
-  "version": "0.1.0-desktop-preview.4",
-  "exe_bytes": 13081600,
-  "zip_bytes": 5857059,
+  "version": "0.1.0-desktop-preview.5",
+  "exe_bytes": 22206464,
+  "zip_bytes": 9409469,
   "embedded_web": true,
   "configuration": "Release x64 static CRT (cross-compiled with cargo-xwin)",
   "languages": [
@@ -9,8 +9,9 @@
     "en"
   ],
   "macos_download_available": true,
-  "privacy": "transparent v1",
+  "privacy": "transparent v1; private v2 test network in app",
   "validator_quorum": false,
   "rewards": false,
-  "macos_zip_bytes": 11961666
+  "macos_zip_bytes": 19796213,
+  "updates": "signed self-update (docs/updates/preview.json)"
 }

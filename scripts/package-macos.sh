@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo 'Run this script on a Mac with Xcode Command Line Tools.' >&2; exit 1; }
 [[ "$(sw_vers -productVersion | cut -d. -f1)" -ge 14 ]] || { echo 'macOS 14+ is required.' >&2; exit 1; }
-version="${ORVEXA_VERSION:-0.1.0-desktop-preview.4}"
+version="${ORVEXA_VERSION:-0.1.0-desktop-preview.5}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]] || { echo 'Invalid version' >&2; exit 1; }
 arch="${1:-universal}"
 case "$arch" in
@@ -61,7 +61,7 @@ cat > "$app/Contents/Info.plist" <<EOF
 <key>CFBundleIconFile</key><string>ORVEXA.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>4</string>
+<key>CFBundleVersion</key><string>5</string>
 <key>ORVEXAPreviewVersion</key><string>$version</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>

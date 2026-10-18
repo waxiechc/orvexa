@@ -4,7 +4,7 @@
 # Старые копии перемещаются в Корзину, а не удаляются навсегда.
 set -uo pipefail
 cd "$(dirname "$0")"
-export ORVEXA_VERSION="${ORVEXA_VERSION:-0.1.0-desktop-preview.4}"
+export ORVEXA_VERSION="${ORVEXA_VERSION:-0.1.0-desktop-preview.5}"
 mkdir -p release demo-data
 log="$PWD/demo-data/build-releases-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee -a "$log") 2>&1
