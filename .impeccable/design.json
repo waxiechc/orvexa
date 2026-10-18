@@ -1,0 +1,319 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T20:42:11Z",
+  "title": "Design System: ORVEXA Wallet & Explorer",
+  "extensions": {
+    "colorMeta": {
+      "obsidian": {
+        "role": "neutral",
+        "displayName": "Obsidian",
+        "tonalRamp": [
+          "oklch(15% 0.0062 261.58)",
+          "oklch(26.43% 0.0062 261.58)",
+          "oklch(37.86% 0.0062 261.58)",
+          "oklch(49.29% 0.0062 261.58)",
+          "oklch(60.71% 0.0062 261.58)",
+          "oklch(72.14% 0.0062 261.58)",
+          "oklch(83.57% 0.0062 261.58)",
+          "oklch(95% 0.0062 261.58)"
+        ]
+      },
+      "midnight-navy": {
+        "role": "neutral",
+        "displayName": "Midnight Navy",
+        "tonalRamp": [
+          "oklch(15% 0.0297 255.31)",
+          "oklch(26.43% 0.0297 255.31)",
+          "oklch(37.86% 0.0297 255.31)",
+          "oklch(49.29% 0.0297 255.31)",
+          "oklch(60.71% 0.0297 255.31)",
+          "oklch(72.14% 0.0297 255.31)",
+          "oklch(83.57% 0.0297 255.31)",
+          "oklch(95% 0.0297 255.31)"
+        ]
+      },
+      "deep-blue": {
+        "role": "neutral",
+        "displayName": "Deep Blue",
+        "tonalRamp": [
+          "oklch(15% 0.0397 252.11)",
+          "oklch(26.43% 0.0397 252.11)",
+          "oklch(37.86% 0.0397 252.11)",
+          "oklch(49.29% 0.0397 252.11)",
+          "oklch(60.71% 0.0397 252.11)",
+          "oklch(72.14% 0.0397 252.11)",
+          "oklch(83.57% 0.0397 252.11)",
+          "oklch(95% 0.0397 252.11)"
+        ]
+      },
+      "steel-blue": {
+        "role": "neutral",
+        "displayName": "Steel Blue",
+        "tonalRamp": [
+          "oklch(15% 0.0531 251.15)",
+          "oklch(26.43% 0.0531 251.15)",
+          "oklch(37.86% 0.0531 251.15)",
+          "oklch(49.29% 0.0531 251.15)",
+          "oklch(60.71% 0.0531 251.15)",
+          "oklch(72.14% 0.0531 251.15)",
+          "oklch(83.57% 0.0531 251.15)",
+          "oklch(95% 0.0531 251.15)"
+        ]
+      },
+      "slate-blue": {
+        "role": "primary",
+        "displayName": "Slate Blue",
+        "tonalRamp": [
+          "oklch(15% 0.0546 249.81)",
+          "oklch(26.43% 0.0546 249.81)",
+          "oklch(37.86% 0.0546 249.81)",
+          "oklch(49.29% 0.0546 249.81)",
+          "oklch(60.71% 0.0546 249.81)",
+          "oklch(72.14% 0.0546 249.81)",
+          "oklch(83.57% 0.0546 249.81)",
+          "oklch(95% 0.0546 249.81)"
+        ]
+      },
+      "ice-white": {
+        "role": "primary",
+        "displayName": "Ice White",
+        "tonalRamp": [
+          "oklch(15% 0.0217 250.21)",
+          "oklch(26.43% 0.0217 250.21)",
+          "oklch(37.86% 0.0217 250.21)",
+          "oklch(49.29% 0.0217 250.21)",
+          "oklch(60.71% 0.0217 250.21)",
+          "oklch(72.14% 0.0217 250.21)",
+          "oklch(83.57% 0.0217 250.21)",
+          "oklch(95% 0.0217 250.21)"
+        ]
+      },
+      "secondary-text": {
+        "role": "neutral",
+        "displayName": "Secondary Text",
+        "tonalRamp": [
+          "oklch(15% 0.0299 251.54)",
+          "oklch(26.43% 0.0299 251.54)",
+          "oklch(37.86% 0.0299 251.54)",
+          "oklch(49.29% 0.0299 251.54)",
+          "oklch(60.71% 0.0299 251.54)",
+          "oklch(72.14% 0.0299 251.54)",
+          "oklch(83.57% 0.0299 251.54)",
+          "oklch(95% 0.0299 251.54)"
+        ]
+      },
+      "borders": {
+        "role": "neutral",
+        "displayName": "Borders",
+        "tonalRamp": [
+          "oklch(15% 0.0354 255.35)",
+          "oklch(26.43% 0.0354 255.35)",
+          "oklch(37.86% 0.0354 255.35)",
+          "oklch(49.29% 0.0354 255.35)",
+          "oklch(60.71% 0.0354 255.35)",
+          "oklch(72.14% 0.0354 255.35)",
+          "oklch(83.57% 0.0354 255.35)",
+          "oklch(95% 0.0354 255.35)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Balance",
+        "purpose": "Confirmed integer balance, with tabular numerals."
+      },
+      "headline": {
+        "displayName": "Page heading",
+        "purpose": "Route title; reduces on mobile."
+      },
+      "title": {
+        "displayName": "Section heading",
+        "purpose": "Activity and content section headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Local system UI stack; compact operating copy."
+      },
+      "button": {
+        "displayName": "Action label",
+        "purpose": "Primary, secondary and ghost action text."
+      },
+      "mono": {
+        "displayName": "Hash and address",
+        "purpose": "Exact identifiers, wrapping in detail views."
+      }
+    },
+    "shadows": [
+      {
+        "name": "dialog",
+        "value": "0 28px 90px rgba(0,0,0,0.5)",
+        "purpose": "Modal dialog only. Resting cards and controls have no shadow."
+      }
+    ],
+    "gradients": [
+      {
+        "name": "page",
+        "value": "linear-gradient(135deg, var(--obsidian) 15%, #0b111a 60%, var(--midnight-navy) 100%)",
+        "purpose": "Continuous cold navy operating field."
+      },
+      {
+        "name": "balance",
+        "value": "linear-gradient(115deg, #152232 0%, #1c3046 100%)",
+        "purpose": "Dashboard balance anchor, without glow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-color",
+        "value": "background-color 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out",
+        "purpose": "Buttons, links and fields."
+      },
+      {
+        "name": "mobile-drawer",
+        "value": "transform 200ms ease-out",
+        "purpose": "Navigation slide at max-width 760px."
+      },
+      {
+        "name": "balance-settle",
+        "value": "400ms cubic-bezier(0.16,1,0.3,1)",
+        "purpose": "One desktop balance-panel clip-path reveal at min-width 1100px."
+      },
+      {
+        "name": "refresh-spin",
+        "value": "1.3s linear infinite",
+        "purpose": "Refresh/processing icon while busy."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none !important; transition: none !important; scroll-behavior: auto !important",
+        "purpose": "Applied to all elements and pseudo-elements when reduced motion is requested."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1250px"
+      },
+      {
+        "name": "stacked-content",
+        "value": "1000px"
+      },
+      {
+        "name": "mobile-drawer",
+        "value": "760px"
+      },
+      {
+        "name": "small-mobile",
+        "value": "370px"
+      },
+      {
+        "name": "desktop-balance-motion-min",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ice White action, shared by Wallet and Explorer.",
+      "html": "<button class=\"ds-button ds-primary\">Send</button>",
+      "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:10px 17px;min-height:41px;border-radius:6px;border:1px solid transparent;font-family:var(--font-ui);font-size:12px;line-height:1.5;font-weight:550;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-button:focus-visible{outline:2px solid var(--ice-white);outline-offset:3px}.ds-button:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}.ds-primary{background:var(--ice-white);color:var(--midnight-navy)}.ds-primary:not(:disabled):hover{background:white}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined navy alternative action.",
+      "html": "<button class=\"ds-button ds-secondary\">Receive</button>",
+      "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:10px 17px;min-height:41px;border-radius:6px;border:1px solid transparent;font-family:var(--font-ui);font-size:12px;line-height:1.5;font-weight:550;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-button:focus-visible{outline:2px solid var(--ice-white);outline-offset:3px}.ds-button:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}.ds-secondary{color:var(--ice-white);background:rgba(27,43,61,.38);border-color:#3a4c61}.ds-secondary:not(:disabled):hover{background:#26384c;border-color:var(--slate-blue)}"
+    },
+    {
+      "name": "Ghost button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Quiet supporting action.",
+      "html": "<button class=\"ds-button ds-ghost\">Latest blocks</button>",
+      "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:10px 17px;min-height:41px;border-radius:6px;border:1px solid transparent;font-family:var(--font-ui);font-size:12px;line-height:1.5;font-weight:550;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-button:focus-visible{outline:2px solid var(--ice-white);outline-offset:3px}.ds-button:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}.ds-ghost{color:var(--secondary-text);background:none;padding-left:10px;padding-right:10px}.ds-ghost:not(:disabled):hover{color:var(--ice-white);background:#1a2838}"
+    },
+    {
+      "name": "Recipient field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Visible Slate Blue field border, real label and focus stroke.",
+      "html": "<label class=\"ds-field\">Recipient address<input class=\"ds-input\" type=\"text\" placeholder=\"Recipient v1 address\" autocomplete=\"off\" /></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:9px;color:#d2e0f0;font-family:var(--font-ui);font-size:12px;font-weight:450}.ds-input{font:inherit;border:1px solid var(--slate-blue);border-radius:5px;background:#0e1925;color:var(--ice-white);min-height:44px;padding:11px 13px;min-width:0;transition:background-color 160ms ease-out,border-color 160ms ease-out,color 160ms ease-out}.ds-input::placeholder{color:#8d9fb4;opacity:1}.ds-input:focus{outline:1px solid #8ba9c9;border-color:#8ba9c9}.ds-input:focus-visible{outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-input{transition:none}}"
+    },
+    {
+      "name": "Active navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Selected route with a visible dot and aria-current.",
+      "html": "<nav aria-label=\"Wallet navigation\"><a class=\"ds-nav-link\" href=\"#/dashboard\" aria-current=\"page\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg><span>Dashboard</span><span class=\"ds-nav-dot\"></span></a></nav>",
+      "css": ".ds-nav-link{display:flex;align-items:center;gap:12px;padding:12px 13px;min-height:45px;border:1px solid var(--borders);border-radius:7px;color:var(--ice-white);background:#162231;font-family:var(--font-ui);font-size:13px;text-decoration:none;transition:background-color 160ms ease-out,color 160ms ease-out}.ds-nav-link:hover{background:#111a25;color:var(--ice-white)}.ds-nav-link:focus-visible{outline:2px solid var(--ice-white);outline-offset:4px}.ds-nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ice-white);margin-left:auto}@media(prefers-reduced-motion:reduce){.ds-nav-link{transition:none}}"
+    },
+    {
+      "name": "Confirmed badge",
+      "kind": "chip",
+      "refersTo": "badge-confirmed",
+      "description": "Block inclusion label; not a claim of decentralized finality.",
+      "html": "<span class=\"ds-badge\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"m20 6-11 11-5-5\"/></svg>Confirmed</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:4px;width:fit-content;padding:3px 7px;font-family:var(--font-ui);font-size:10px;line-height:1.5;border:1px solid #3a526b;border-radius:4px;color:#d2e5f9;background:rgba(51,75,101,.25);white-space:nowrap}"
+    },
+    {
+      "name": "Pending badge",
+      "kind": "chip",
+      "refersTo": "badge-pending",
+      "description": "Submission remains in the volatile mempool.",
+      "html": "<span class=\"ds-pending\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"M22 12h-4l-3 9L9 3l-3 9H2\"/></svg>Pending</span>",
+      "css": ".ds-pending{display:inline-flex;align-items:center;gap:4px;width:fit-content;padding:3px 7px;font-family:var(--font-ui);font-size:10px;line-height:1.5;border:1px solid #445264;border-radius:4px;color:#c2cfdf;background:rgba(82,109,137,.12);white-space:nowrap}"
+    },
+    {
+      "name": "Network panel",
+      "kind": "card",
+      "refersTo": "network-panel",
+      "description": "Quiet network facts; em dashes represent data not yet read.",
+      "html": "<section class=\"ds-network\"><div class=\"ds-panel-heading\"><h2>Connected network</h2><span class=\"ds-connection-dot\"></span></div><div class=\"ds-network-name\">ORVEXA <span>Local devnet</span></div><p class=\"ds-node-origin\">Waiting for node</p><dl class=\"ds-network-facts\"><div><dt>Block height</dt><dd>—</dd></div><div><dt>Pending transfers</dt><dd>—</dd></div><div><dt>Burned fees</dt><dd>—</dd></div></dl></section>",
+      "css": ".ds-network{border:1px solid var(--borders);border-radius:10px;padding:25px 25px 18px;background:rgba(16,26,39,.42);color:var(--ice-white);font-family:var(--font-ui)}.ds-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:23px}.ds-panel-heading h2{margin:0;font-size:14px;font-weight:550;line-height:1.25;letter-spacing:-.015em}.ds-connection-dot{height:6px;width:6px;background:#526071;border-radius:50%}.ds-network-name{font-size:18px;font-weight:500;letter-spacing:-.02em}.ds-network-name>span{margin-left:7px;font-size:10px;padding:3px 6px;border:1px solid #34485f;border-radius:4px;color:#b8cadf;font-weight:400;vertical-align:2px;letter-spacing:0}.ds-node-origin{font-size:10px;color:var(--secondary-text);margin:8px 0 22px}.ds-network-facts{display:grid;gap:13px;margin:0 0 20px}.ds-network-facts>div{display:flex;justify-content:space-between;gap:10px}.ds-network-facts dt{font-size:11px;color:var(--secondary-text)}.ds-network-facts dd{margin:0;font-size:11px;color:#d2e1f2;font-variant-numeric:tabular-nums}"
+    }
+  ],
+  "narrative": {
+    "northStar": "ORVEXA local wallet workspace",
+    "overview": "An English operating interface for local testers creating wallets, transferring\ntest atoms and inspecting real node state. The confirmed brief is premium,\nrestrained, technological and minimal: a cold navy field, clear system type,\ngeometric identity, thin borders and space around important actions.\n\nThe approved eye/flower symbol and ORVEXA wordmark anchor every route. Current\nSVGs in `web/public/brand/` are path-based reconstructions traced from\n`ORVEXA.png`; they contain no embedded bitmap and are not an original vector\nmaster. Preserve these geometries and proportions when extending the interface.",
+    "keyCharacteristics": [
+      "Obsidian-to-navy background with Ice White actions and identity.",
+      "Open transaction rows, exact integers and compact network facts.",
+      "Visible connection, pending, confirmed, unavailable and empty states.",
+      "One visual language across Wallet, dialogs and Explorer."
+    ],
+    "rules": [
+      {
+        "name": "The Restrained State Rule",
+        "body": "Use wording, icons and contrast to distinguish\nstates within the blue palette. Do not introduce red, purple, neon or glow.",
+        "section": "colors"
+      },
+      {
+        "name": "The Observed State Rule",
+        "body": "Do not fill a disconnected or empty interface with\ninvented balances, blocks, transactions, confirmations or chart activity.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** preserve the approved eye/flower paths and ORVEXA wordmark proportions.",
+      "**Do** use English UI copy, whole test atoms and real node-backed values.",
+      "**Do** keep Transparent v1, public addresses and amounts explicit.",
+      "**Do** distinguish pending submission, block inclusion and last known state.",
+      "**Do** retain keyboard focus, mobile drawer behavior and reduced-motion support.",
+      "**Do** show encrypted-file backup and restore; v1 has no seed phrase."
+    ],
+    "donts": [
+      "**Don't** replace the approved logo with another eye, star or emblem.",
+      "**Don't** introduce bright red, purple, neon accents or decorative glow.",
+      "**Don't** describe v1 transfers as private, anonymous or ready for real funds.",
+      "**Don't** display passwords, private keys or invented recovery phrases in UI examples.",
+      "**Don't** imply automatic mining, a faucet or decentralized finality.",
+      "**Don't** use promotional graphics or illustrative data as real ledger state."
+    ]
+  }
+}

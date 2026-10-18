@@ -1,0 +1,14 @@
+{
+    "package":  "libp2p-noise",
+    "version":  "0.46.1",
+    "repository":  "https://github.com/libp2p/rust-libp2p",
+    "commit":  "d92dabcbb87c4796d46e3d312b7fa042af10279a",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/libp2p/rust-libp2p/d92dabcbb87c4796d46e3d312b7fa042af10279a/LICENSE",
+                        "file":  "LICENSE",
+                        "sha256":  "e10098b8c52fd18ad0f116aac2c0dba1e99ca125d6848640c00688e160a3ee7d"
+                    }
+                ]
+}

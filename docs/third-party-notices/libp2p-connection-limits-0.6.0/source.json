@@ -1,0 +1,14 @@
+{
+    "package":  "libp2p-connection-limits",
+    "version":  "0.6.0",
+    "repository":  "https://github.com/libp2p/rust-libp2p",
+    "commit":  "7b9a558e3188eaf20a14bd8388d5e9b6e2aa9a23",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/libp2p/rust-libp2p/7b9a558e3188eaf20a14bd8388d5e9b6e2aa9a23/LICENSE",
+                        "file":  "LICENSE",
+                        "sha256":  "e10098b8c52fd18ad0f116aac2c0dba1e99ca125d6848640c00688e160a3ee7d"
+                    }
+                ]
+}

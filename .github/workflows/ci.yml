@@ -1,0 +1,53 @@
+name: ORVEXA
+on: [push, pull_request]
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo check --workspace --locked
+      - run: cargo test --workspace --locked
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo build --workspace --locked
+      - if: runner.os == 'Windows'
+        shell: powershell
+        run: .\scripts\demo.ps1 -SkipBuild
+      - if: runner.os == 'Windows'
+        shell: powershell
+        run: .\scripts\demo-testnet.ps1 -BinaryDir target/debug
+      - if: runner.os == 'Windows'
+        shell: powershell
+        run: .\scripts\demo-p2p.ps1 -BinaryDir target/debug
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.93.0
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: cargo build --workspace --locked
+      - run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - run: cargo build -p orvexa-web-wallet --target wasm32-unknown-unknown --release --locked
+      - run: wasm-bindgen --target web --out-dir web/public/wasm --out-name orvexa_web_wallet target/wasm32-unknown-unknown/release/orvexa_web_wallet.wasm
+      - run: npm ci --ignore-scripts
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - run: npm run test:unit
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm test
+        working-directory: web

@@ -1,0 +1,17 @@
+/target/
+/data/
+/demo-data/
+*.wallet.json
+*.sqlite*
+*.db-journal
+*.log
+/web/node_modules/
+/web/dist/
+/web/public/wasm/
+/web/test-results/
+/web/playwright-report/
+/web/*.tsbuildinfo
+/release/
+*.secret
+*.peerkey
+/web/public/open-source-notices.txt

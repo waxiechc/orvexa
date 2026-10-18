@@ -1,0 +1,14 @@
+{
+    "package":  "match-lookup",
+    "version":  "0.1.3",
+    "repository":  "https://github.com/mriise/smol-base-x",
+    "commit":  "d524fb7c1e6ec08ca043f1f2011802791f010189",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+                        "file":  "LICENSE-SPDX-MIT.txt",
+                        "sha256":  "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+                    }
+                ]
+}

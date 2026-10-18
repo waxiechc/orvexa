@@ -1,0 +1,1 @@
+The published match-lookup 0.1.3 declares MIT in Cargo.toml.orig. No standalone LICENSE/copyright file exists at the exact source tree root d524fb7c1e6ec08ca043f1f2011802791f010189. The SPDX MIT text is a reference for the MIT option with its original placeholders, not an invented upstream notice. Published authors/declaration are preserved in Cargo.toml.orig.

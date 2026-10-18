@@ -1,0 +1,21 @@
+name: Bug report
+description: Report an ORVEXA preview issue. Never include secrets.
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Expected behavior, actual behavior and reproduction steps.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and operating system
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: No wallet files, seeds, passwords or credentials.

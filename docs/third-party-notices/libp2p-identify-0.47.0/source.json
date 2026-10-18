@@ -1,0 +1,14 @@
+{
+    "package":  "libp2p-identify",
+    "version":  "0.47.0",
+    "repository":  "https://github.com/libp2p/rust-libp2p",
+    "commit":  "c9bd92ba2d4727d79b0c2623c20c998a4e60995a",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/libp2p/rust-libp2p/c9bd92ba2d4727d79b0c2623c20c998a4e60995a/LICENSE",
+                        "file":  "LICENSE",
+                        "sha256":  "e10098b8c52fd18ad0f116aac2c0dba1e99ca125d6848640c00688e160a3ee7d"
+                    }
+                ]
+}

@@ -1,0 +1,1 @@
+The published futures-bounded 0.2.4 declares MIT in Cargo.toml.orig. No standalone LICENSE/copyright file exists in the exact source tree 7a9b5a96663835c1234df5251fe88df75d26fb86. The SPDX MIT text is a reference with its original placeholders, not an invented upstream notice.

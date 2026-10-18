@@ -1,0 +1,12 @@
+:root {
+  --obsidian: #050608;
+  --midnight-navy: #101A27;
+  --deep-blue: #1B2B3D;
+  --steel-blue: #334B65;
+  --slate-blue: #526D89;
+  --ice-white: #E6F2FF;
+  --secondary-text: #9AA9BA;
+  --borders: #253243;
+  --font-ui: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}

@@ -1,0 +1,91 @@
+# ORVEXA Desktop — preview 1
+
+Один Windows x64 EXE: настоящее окно приложения, English Wallet, Explorer и
+проверяющий full node. Web/JavaScript/Wasm ассеты и тексты лицензий встроены.
+Отдельные Rust, Node.js, VPN, Docker и аккаунт не нужны. Нужен системный
+Microsoft WebView2 runtime (установлен на этом тестовом ПК). Если его нет,
+программа покажет ошибку; [официальная загрузка runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
+Ничего не устанавливается и не скачивается скрытно.
+
+## Запуск
+
+1. Скачать `ORVEXA.exe` из GitHub Release или распаковать полный ZIP с инструкциями.
+2. Открыть EXE. Первый экран — Node, без случайной genesis/подставных балансов.
+3. Кошелёк можно создать локально в Wallets. Сохранить зашифрованный backup и
+   пароль: v1 использует encrypted JSON, **seed-фразы ещё нет**.
+4. Для присоединения получить у оператора публичные `genesis.json` и
+   `network.json`, выбрать их в Node, сверить chain ID независимо и нажать
+   **Verify & save network**. Не передавать приложению кошелёк оператора/authority.
+5. Нажать **Start node**. Узел выполняется в фоне этого же процесса, показывает
+   реальные peers/height, Wallet и Explorer используют его проверенную цепочку.
+6. **Stop node** останавливает сеть и закрывает её базу. Закрытие приложения также
+   останавливает узел; минимизация оставляет его работающим. Resume on launch
+   включается в настройках сети. Автозапуск при входе ОС и трей пока не реализованы.
+
+Это прозрачная v1, без реальных денег: суммы/адреса/связи публичны. Full node
+проверяет и распространяет, но не становится валидатором кворума и не получает
+награды. Единственный настроенный authority всё ещё необходим для подтверждений.
+Нет live публичного bootstrap или встроенных сетевых файлов. Любой участник с
+доступным компьютером может держать seed, но его реальный адрес надо настроить.
+Приватность с выборочным раскрытием, mnemonic, BFT и rewards — в
+[PLATFORM_PLAN.md](PLATFORM_PLAN.md); не являются возможностями этого релиза.
+
+## Данные и ограничения
+
+Обычный профиль: `%LOCALAPPDATA%\ORVEXA`, отдельный от `data/` старого прототипа.
+В нём публичный `profile.json`, отдельный `identity.peerkey`, SQLite по chain ID,
+evidence, кэш статических ассетов и WebView2 browser profile с зашифрованными
+кошельками. Перемещение EXE не удаляет данные. Не удаляйте каталог ради обновления.
+Profile/browser cache не заменяет переносимый encrypted backup.
+
+UI слушает только `http://127.0.0.1:4252`. Стабильный порт сохраняет origin
+кошельков. Изменение порта меняет origin/localStorage: восстанавливайте backup,
+а не считайте пустой интерфейс потерей монет. Второй экземпляр с тем же каталогом
+блокируется OS file lock. Не открывать порт 4252 наружу. P2P TCP по умолчанию 4243;
+доступность извне определяется роутером/firewall/провайдером.
+
+При обычном сбое peer worker ограниченно перезапускается с backoff. После
+исчерпания попыток — Needs attention. Конфликт подписанных authority-заголовков
+сохраняет evidence и quarantine; restart/resume её не сбрасывает. Сетевой статус
+не является обещанием финальности, а localhost Origin — защитой от вредоносного
+ПО на том же компьютере. Spending passwords/keys не входят в control API.
+
+## Команды PowerShell
+
+Из папки скачанного EXE:
+
+```powershell
+.\ORVEXA.exe
+Get-FileHash .\ORVEXA.exe -Algorithm SHA256
+```
+
+Отдельный тестовый профиль и другой стабильный UI-порт:
+
+```powershell
+.\ORVEXA.exe --data-dir .\my-test-profile --listen 127.0.0.1:4352
+```
+
+Для разработки из корня исходников:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-desktop.ps1
+$env:ORVEXA_BIN_DIR = 'target/friends/release'
+$env:ORVEXA_NATIVE_GUI_TEST = '1'
+Set-Location .\web
+npm.cmd test
+```
+
+`--headless` служит проверкам/локальному серверному host; native GUI пока только
+Windows. `--webview-debug-port` — явный флаг локального тестирования, в обычном
+запуске remote debugging выключен. В production его не включать: browser debug
+получает доступ к интерфейсу и расшифровываемым во время работы данным.
+
+## Что проверено
+
+Rust: pin/профиль, ограничения импорта, OS lock, start/stop/resume, durable chain,
+сохранение quarantine, чужие Host/Origin, недопустимые секретные поля и большие
+запросы, типизированные balance/transaction API через native host.
+Browser: импорт реальной сети, live peer, подпись в Wasm, реальный перевод,
+Explorer, остановка и restart с тем же tip. Windows WebView2: настоящее окно,
+встроенные ассеты, создание encrypted wallet через Rust Wasm.
+Публичный интернет/внешние операторы/независимый аудит пока не пройдены.

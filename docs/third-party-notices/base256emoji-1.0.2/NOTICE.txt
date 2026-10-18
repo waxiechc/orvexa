@@ -1,0 +1,1 @@
+The published base256emoji 1.0.2 declares MIT in Cargo.toml.orig. No standalone LICENSE/copyright file exists in the exact source tree f7cf4ae2c15123376d6634ca7aed005034b396ec. The SPDX MIT text is a reference with its original placeholders, not an invented upstream notice.

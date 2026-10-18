@@ -1,0 +1,14 @@
+{
+    "package":  "futures-bounded",
+    "version":  "0.2.4",
+    "repository":  "https://github.com/thomaseizinger/rust-futures-bounded",
+    "commit":  "7a9b5a96663835c1234df5251fe88df75d26fb86",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+                        "file":  "LICENSE-SPDX-MIT.txt",
+                        "sha256":  "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+                    }
+                ]
+}

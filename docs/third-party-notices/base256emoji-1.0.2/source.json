@@ -1,0 +1,14 @@
+{
+    "package":  "base256emoji",
+    "version":  "1.0.2",
+    "repository":  "https://github.com/Jorropo/base256emoji/",
+    "commit":  "f7cf4ae2c15123376d6634ca7aed005034b396ec",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+                        "file":  "LICENSE-SPDX-MIT.txt",
+                        "sha256":  "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+                    }
+                ]
+}

@@ -1,0 +1,14 @@
+{
+    "package":  "base45",
+    "version":  "3.2.0",
+    "repository":  "https://github.com/opendevtools/base45",
+    "commit":  "b9959a71143e0bd7b5f6ce547fe3c65f2031ad97",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+                        "file":  "LICENSE-SPDX-MIT.txt",
+                        "sha256":  "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+                    }
+                ]
+}

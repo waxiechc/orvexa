@@ -1,0 +1,29 @@
+[package]
+name = "orvexa-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+orvexa-core.workspace = true
+orvexa-crypto.workspace = true
+orvexa-rpc.workspace = true
+orvexa-wallet.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite.workspace = true
+axum.workspace = true
+tower.workspace = true
+tokio.workspace = true
+clap.workspace = true
+rpassword.workspace = true
+zeroize.workspace = true
+subtle.workspace = true
+libp2p.workspace = true
+futures-util.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+reqwest.workspace = true

@@ -1,0 +1,19 @@
+{
+    "package":  "yamux",
+    "version":  "0.13.10",
+    "repository":  "https://github.com/paritytech/yamux",
+    "commit":  "70db05dc63e8368bd0559a5ec0dba6e5fc2bdd41",
+    "declared_license":  "Apache-2.0 OR MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/libp2p/rust-yamux/70db05dc63e8368bd0559a5ec0dba6e5fc2bdd41/LICENSE-APACHE",
+                        "file":  "LICENSE-APACHE",
+                        "sha256":  "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+                    },
+                    {
+                        "url":  "https://raw.githubusercontent.com/libp2p/rust-yamux/70db05dc63e8368bd0559a5ec0dba6e5fc2bdd41/LICENSE-MIT",
+                        "file":  "LICENSE-MIT",
+                        "sha256":  "ec353d4fecf7963b4c054384557e5dbc3c7a717997eb4a3815b315721a6aa75a"
+                    }
+                ]
+}

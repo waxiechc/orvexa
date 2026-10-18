@@ -1,0 +1,1 @@
+The published base45 3.2.0 declares MIT in Cargo.toml.orig. No standalone LICENSE/copyright file exists in the exact source tree b9959a71143e0bd7b5f6ce547fe3c65f2031ad97. The SPDX MIT text is a reference with its original placeholders, not an invented upstream notice.

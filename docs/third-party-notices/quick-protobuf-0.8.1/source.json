@@ -1,0 +1,14 @@
+{
+    "package":  "quick-protobuf",
+    "version":  "0.8.1",
+    "repository":  "https://github.com/tafia/quick-protobuf",
+    "commit":  "3db41b4b6b42e69cb20ee0857f6898f053ed8ee7",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/tafia/quick-protobuf/3db41b4b6b42e69cb20ee0857f6898f053ed8ee7/LICENSE-MIT.md",
+                        "file":  "LICENSE-MIT.md",
+                        "sha256":  "4d5679813849eeae6a64d39f2d6c753beb3c2fcdca288ed23716038a2e8c99d7"
+                    }
+                ]
+}

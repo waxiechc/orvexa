@@ -1,0 +1,41 @@
+[workspace]
+members = ["crates/orvexa-crypto", "crates/orvexa-core", "crates/orvexa-wallet", "crates/orvexa-rpc", "crates/orvexa-node", "crates/orvexa-cli", "crates/orvexa-tests", "crates/orvexa-web-wallet", "crates/orvexa-desktop"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "MIT"
+
+[workspace.dependencies]
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10.9"
+hex = "0.4.3"
+ed25519-dalek = { version = "=2.2.0", features = ["zeroize"] }
+getrandom = "0.2.16"
+zeroize = { version = "1.8", features = ["derive"] }
+argon2 = { version = "=0.5.3", features = ["zeroize"] }
+chacha20poly1305 = "=0.10.1"
+clap = { version = "4.5", features = ["derive"] }
+rpassword = "7.4"
+subtle = "2.6.1"
+libp2p = { version = "=0.56.0", default-features = false, features = ["tokio", "tcp", "noise", "yamux", "identify", "request-response", "json", "macros", "ed25519"] }
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread", "net", "signal", "time", "sync"] }
+axum = "0.8"
+tower = { version = "0.5", features = ["util"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream"] }
+futures-util = "0.3"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+tempfile = "3.20"
+orvexa-crypto = { path = "crates/orvexa-crypto" }
+orvexa-core = { path = "crates/orvexa-core" }
+orvexa-wallet = { path = "crates/orvexa-wallet" }
+orvexa-rpc = { path = "crates/orvexa-rpc" }
+orvexa-node = { path = "crates/orvexa-node" }
+
+[profile.release]
+overflow-checks = true

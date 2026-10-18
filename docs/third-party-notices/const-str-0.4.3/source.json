@@ -1,0 +1,14 @@
+{
+    "package":  "const-str",
+    "version":  "0.4.3",
+    "repository":  "https://github.com/Nugine/const-str",
+    "commit":  "a549b512ced97f5ec6569823dbce08916cd611f3",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/Nugine/const-str/a549b512ced97f5ec6569823dbce08916cd611f3/LICENSE",
+                        "file":  "LICENSE",
+                        "sha256":  "565aacda8f5ea53f937f867ed49a0ac7e6828b60b4568803185cd0a13297d4e4"
+                    }
+                ]
+}

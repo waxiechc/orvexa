@@ -1,0 +1,14 @@
+{
+    "package":  "libp2p-tcp",
+    "version":  "0.44.1",
+    "repository":  "https://github.com/libp2p/rust-libp2p",
+    "commit":  "4682e735cbdfd8f2b59f5478591a4e8ae552fa68",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/libp2p/rust-libp2p/4682e735cbdfd8f2b59f5478591a4e8ae552fa68/LICENSE",
+                        "file":  "LICENSE",
+                        "sha256":  "e10098b8c52fd18ad0f116aac2c0dba1e99ca125d6848640c00688e160a3ee7d"
+                    }
+                ]
+}

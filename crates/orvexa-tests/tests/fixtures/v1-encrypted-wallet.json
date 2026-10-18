@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "version": 1,
+    "address": "void_test_5e1bdc90262e76a0050b1281082b86dd99a61fc5af0efd945b0fc1b5fad8ad3bf15ca12d",
+    "kdf": "argon2id-v19",
+    "memory_kib": 65536,
+    "iterations": 3,
+    "lanes": 1,
+    "salt": "34e8db43162160dc70146301374de645",
+    "nonce": "60fdcfc4a6edd4bfdacc32794b5a21c935ccb3815bbdad10"
+  },
+  "ciphertext": "cbca758e29a2b220c720c31a0fb65e7034b9187e13d61ab2fa5210a9b2d90828c7b5c97bd9efd679a641114f55a0b86c"
+}

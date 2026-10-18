@@ -1,0 +1,14 @@
+{
+    "package":  "libp2p-identity",
+    "version":  "0.2.14",
+    "repository":  "https://github.com/libp2p/rust-libp2p",
+    "commit":  "817ed75a388f11b48c5e305492871c13a3c021e9",
+    "declared_license":  "MIT",
+    "sources":  [
+                    {
+                        "url":  "https://raw.githubusercontent.com/libp2p/rust-libp2p/817ed75a388f11b48c5e305492871c13a3c021e9/LICENSE",
+                        "file":  "LICENSE",
+                        "sha256":  "e10098b8c52fd18ad0f116aac2c0dba1e99ca125d6848640c00688e160a3ee7d"
+                    }
+                ]
+}

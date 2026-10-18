@@ -1,0 +1,10 @@
+{
+    "version":  "0.1.0-desktop-preview.1",
+    "exe_bytes":  12990464,
+    "zip_bytes":  5535705,
+    "embedded_web":  true,
+    "configuration":  "Release x64 static CRT",
+    "privacy":  "transparent v1",
+    "validator_quorum":  false,
+    "rewards":  false
+}
