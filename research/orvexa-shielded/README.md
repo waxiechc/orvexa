@@ -13,13 +13,16 @@
 
 ```bash
 cd research/orvexa-shielded
-cargo test --locked      # 28 тестов с настоящими доказательствами, ≈ 45 с на Apple M4
+cargo test --locked      # 38 тестов с настоящими доказательствами, ≈ 50 с на Apple M4
 ```
 
 - `src/envelope.rs` — формат конверта, декодер, sighash, txid.
 - `src/ledger.rs` — genesis и chain ID, правила транзакции и блока, состояние, replay.
 - `src/store.rs` — SQLite: атомарная запись блока, пересчёт и сверка при открытии.
+- `src/seed_wallet.rs` — BIP39 (24 слова) → ZIP 32, собственное дерево, скан, сдача, ожидающие траты.
+- `src/seed_file.rs` — зашифрованный файл seed (Argon2id + XChaCha20-Poly1305), атомарная запись.
 - `src/wallet.rs` — тестовый кошелёк (скан, witness, перевод) и сборщик
   произвольных bundle для атак.
 - `tests/ledger.rs` — сценарии P2-01…P2-15 и P3-01…P3-12.
+- `tests/seed_wallet.rs` — P4: векторы BIP39, diversified-адреса, восстановление и пересканирование, файл, секреты, pending.
 - `tests/storage.rs` — перезапуск, аварии процесса до и после COMMIT, подделка базы.

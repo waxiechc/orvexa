@@ -15,6 +15,8 @@ pub mod envelope;
 pub mod keys;
 pub mod ledger;
 pub mod store;
+pub mod seed_file;
+pub mod seed_wallet;
 pub mod wallet;
 
 pub use envelope::{Envelope, EnvelopeError};

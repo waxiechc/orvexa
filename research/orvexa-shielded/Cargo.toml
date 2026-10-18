@@ -19,6 +19,14 @@ rand = { version = "0.10", features = ["std", "sys_rng"] }
 sha2 = "0.10.9"
 subtle = "2.6"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
+bip0039 = { version = "=0.14.2", default-features = false, features = ["std"] }
+zip32 = { version = "0.3", default-features = false }
+argon2 = { version = "=0.5.3", features = ["zeroize"] }
+chacha20poly1305 = "=0.10.1"
+zeroize = { version = "1.8", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4.3"
 
 # Proving is ~10x slower unoptimized; tests build dependencies with optimizations.
 [profile.dev.package."*"]
