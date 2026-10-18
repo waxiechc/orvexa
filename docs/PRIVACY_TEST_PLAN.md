@@ -21,6 +21,14 @@
 | P1-06 | Monero source/fixtures как сравнительная база | Зафиксированы input/output/ring shape, данные decoy corpus и реально проверяемые APIs; FCMP++ не приписан CLSAG |
 | P1-07 | Сопоставление двух путей и решение go/no-go | Пробелы и стоимость адаптации учтены; следующий P2 не начинается автоматически |
 
+**Состояние на 2026-10-18** ([стенд и отчёт](../research/orchard-eval/README.md),
+`orchard =0.16.0`, Ironwood v3 / PostNu6_3, Apple M4):
+P1-03 выполнен; P1-01 выполнен, кроме запуска на Windows (сборка есть);
+P1-05 выполнен для Mac, нет Windows-ПК и Intel; P1-02 — RustSec чист, покрытие
+аудитом не установлено; P1-04 — частично (границы builder/verifier, без
+сериализации); P1-06 и P1-07 не начаты. Стенд показал, что повтор nullifier
+и отрицательный value balance библиотека принимает — их обязан отвергать узел.
+
 Настоящие proofs в upstream fixtures ещё не проверяют genesis/chain binding,
 экономику или double spend ORVEXA. В P1 нет собственного sighash, адаптера,
 кошелька, nullifier database, RPC или Explorer. Неисполненная сравнительная

@@ -234,7 +234,8 @@ genesis или state-level double-spend validation за узел.
 Ранее выполненный `cargo info orchard@0.16.0 --registry crates-io` подтвердил
 публикацию, MIT OR Apache-2.0 и MSRV 1.88. Локальный source metadata указывает
 commit `8190e4d9b7e9c0140964e88b71f95276d2b50470`. Пакет **не добавлен** в
-workspace и не собран. Его manifest требует семейства Halo2 0.4/gadgets 0.6,
+workspace v1; с 2026-10-18 он собран и измерен только в изолированном
+[стенде P1](../research/orchard-eval/README.md) со своим lock-файлом. Его manifest требует семейства Halo2 0.4/gadgets 0.6,
 Pasta 0.6, RedDSA 0.6, note encryption 0.5.1, ZIP32 0.3, tree 0.9 и rand 0.10;
 это не зафиксированный и проверенный dependency graph ORVEXA.
 [Manifest](https://github.com/zcash/orchard/blob/0.16.0/Cargo.toml),

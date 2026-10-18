@@ -1,0 +1,119 @@
+{
+  "bundle_version": "BundleVersion::ironwood_v3()",
+  "circuit": "OrchardCircuitVersion::PostNu6_3",
+  "keygen": {
+    "peak_rss_bytes": 44007424,
+    "proving_key_build_ms": 1068.744,
+    "verifying_key_build_ms": 659.63
+  },
+  "library": "orchard =0.16.0 (std, circuit, multicore)",
+  "machine": {
+    "arch": "aarch64",
+    "cpu": "Apple M4",
+    "logical_cpus": 10,
+    "os": "macos 27.0.0",
+    "profile": "release"
+  },
+  "negative": {
+    "flipped_proof_bit": "proof_rejected",
+    "flipped_proof_bit_batch_accepts": false,
+    "outputs_exceed_spends": {
+      "library_check": "ok",
+      "value_balance": -40000
+    },
+    "peak_rss_bytes": 125009920,
+    "same_note_in_two_bundles": {
+      "batch_of_both_accepts": true,
+      "first": "ok",
+      "second": "ok",
+      "share_a_nullifier": true
+    },
+    "same_note_twice_in_one_bundle": {
+      "builder": "accepted",
+      "duplicate_nullifier_in_bundle": true,
+      "library_check": "ok"
+    },
+    "signatures_under_other_sighash": "spend_auth_signature_rejected",
+    "signed_with_wrong_spend_key": "builder_refused_missing_signature",
+    "spend_path_not_matching_anchor": "builder_refused: AnchorMismatch",
+    "truncated_proof": "proof_rejected",
+    "two_max_value_outputs": "builder_refused: ValueSum(Overflow)",
+    "valid_bundle": "ok",
+    "value_balance_changed_after_signing": "spend_auth_signature_rejected",
+    "value_balance_changed_original_sighash": "binding_signature_rejected",
+    "verified_with_FixedPostNu6_2_key": "proof_rejected"
+  },
+  "stand": "orchard-eval P1",
+  "transfers": [
+    {
+      "actions": 2,
+      "estimated_bundle_bytes": 9141,
+      "estimated_bytes_per_action": 884,
+      "peak_rss_bytes": 121831424,
+      "proof_bytes": 7264,
+      "prove_and_sign_ms": [
+        619.194,
+        629.925,
+        626.771
+      ],
+      "recipient_found_values_sum": 19990,
+      "recipient_scan_ms": 1.255,
+      "stranger_found": 0,
+      "stranger_scan_ms": 0.104,
+      "value_balance": 10,
+      "verify_batch_of_one_ms": 4.855,
+      "verify_single_ms": [
+        5.282,
+        5.183,
+        4.98
+      ]
+    },
+    {
+      "actions": 4,
+      "estimated_bundle_bytes": 15453,
+      "estimated_bytes_per_action": 884,
+      "peak_rss_bytes": 167362560,
+      "proof_bytes": 11808,
+      "prove_and_sign_ms": [
+        1143.836,
+        1134.893,
+        1146.326
+      ],
+      "recipient_found_values_sum": 39990,
+      "recipient_scan_ms": 2.52,
+      "stranger_found": 0,
+      "stranger_scan_ms": 0.218,
+      "value_balance": 10,
+      "verify_batch_of_one_ms": 6.55,
+      "verify_single_ms": [
+        7.404,
+        7.109,
+        6.98
+      ]
+    },
+    {
+      "actions": 8,
+      "estimated_bundle_bytes": 28077,
+      "estimated_bytes_per_action": 884,
+      "peak_rss_bytes": 258654208,
+      "proof_bytes": 20896,
+      "prove_and_sign_ms": [
+        2175.013,
+        2191.822,
+        2170.965
+      ],
+      "recipient_found_values_sum": 79990,
+      "recipient_scan_ms": 4.999,
+      "stranger_found": 0,
+      "stranger_scan_ms": 0.423,
+      "value_balance": 10,
+      "verify_batch_of_one_ms": 10.413,
+      "verify_single_ms": [
+        11.975,
+        13.212,
+        11.932
+      ]
+    }
+  ],
+  "tx_version_for_sighash": "TxVersion::V6"
+}
