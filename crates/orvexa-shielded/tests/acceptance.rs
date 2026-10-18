@@ -39,7 +39,7 @@ fn start(dir: &Path, name: &str, genesis: &Path, role: &[&str]) -> Proc {
             "run",
             "--data-dir",
             dir.join(name).to_str().unwrap(),
-            "--genesis",
+            "--network",
             genesis.to_str().unwrap(),
         ])
         .args(["--listen", "127.0.0.1:0"])
@@ -103,7 +103,12 @@ impl World {
             &self.dir,
             "producer",
             &self.genesis,
-            &["--produce-every-ms", "200"],
+            &[
+                "--produce-every-ms",
+                "200",
+                "--producer-key",
+                self.dir.join("producer.key").to_str().unwrap(),
+            ],
         );
         let follow = ["--follow", producer.url.as_str(), "--poll-ms", "150"];
         self.follower = Some(start(&self.dir, "follower", &self.genesis, &follow));
@@ -157,12 +162,14 @@ async fn private_v2_end_to_end() {
         SeedWallet::generate(),
         SeedWallet::generate(),
     );
-    let genesis = dir.join("genesis.bin");
+    let genesis = dir.join("network.json");
     let made = Command::new(NODE)
         .args([
             "genesis",
             "--to",
-            &hex::encode(a.address().to_raw_address_bytes()),
+            &orvexa_shielded::address::encode(&a.address()),
+            "--producer-key",
+            dir.join("producer.key").to_str().unwrap(),
             "--out",
             genesis.to_str().unwrap(),
         ])

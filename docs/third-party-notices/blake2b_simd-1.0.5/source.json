@@ -1,0 +1,14 @@
+{
+    "package": "blake2b_simd",
+    "version": "1.0.5",
+    "repository": "https://github.com/oconnor663/blake2_simd",
+    "commit": "47714dc3c424e82213d7f2eb4a833e3843017be5",
+    "declared_license": "MIT",
+    "sources": [
+        {
+            "url": "https://raw.githubusercontent.com/oconnor663/blake2_simd/47714dc3c424e82213d7f2eb4a833e3843017be5/LICENSE",
+            "file": "LICENSE",
+            "sha256": "27e0387973d6b8507cb15f825f6f26e0278d4d5857082c1f56b49a7b39a90183"
+        }
+    ]
+}

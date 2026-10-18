@@ -11,6 +11,7 @@ clap.workspace = true
 orvexa-node.workspace = true
 orvexa-crypto.workspace = true
 orvexa-shielded.workspace = true
+orvexa-update.workspace = true
 tokio.workspace = true
 axum.workspace = true
 serde_json.workspace = true

@@ -584,3 +584,52 @@ label.amount-field { align-items: stretch; color: var(--text-muted); }
 .v2-toolbar .wallet-picker { max-width: 320px; padding-left: 14px; }
 .v2-toolbar .wallet-picker select { width: auto; min-width: 180px; max-width: 280px; }
 .private-v2 button.block-row { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.v2-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.v2-choice { display: grid; gap: 12px; align-content: start; padding: 20px; border-radius: var(--radius-lg); background: var(--surface-raised); border: 1px solid var(--line); }
+.v2-choice h3 { margin: 0; font-size: 17px; }
+.v2-choice p { margin: 0; color: var(--text-muted); }
+.v2-choice .file-picker-button { display: inline-flex; align-items: center; gap: 9px; justify-self: start; cursor: pointer; }
+@media (max-width: 760px) { .v2-choices { grid-template-columns: 1fr; } }
+.update-banner .update-error { color: #F3B4B4; }
+
+/* App dropdown: same look on macOS and Windows, whole button is the target. */
+.dropdown { position: relative; display: inline-flex; min-width: 0; }
+.dropdown-button { display: inline-flex; align-items: center; gap: 9px; height: 40px; max-width: 280px; padding: 0 12px 0 8px; border: 0; border-radius: 999px; background: var(--midnight-navy); color: var(--text-strong); font: 600 14px/1 var(--font-ui); cursor: pointer; text-align: left; transition: background-color .15s var(--ease-out); }
+.dropdown-button:hover, .dropdown.open .dropdown-button { background: var(--deep-blue); }
+.dropdown-button:focus-visible { outline: 2px solid var(--ice-white); outline-offset: 2px; }
+.dropdown-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropdown-chevron { flex-shrink: 0; color: var(--text-muted); transition: transform .15s var(--ease-out); }
+.dropdown.open .dropdown-chevron { transform: rotate(180deg); }
+.dropdown-list { position: absolute; top: calc(100% + 6px); z-index: 60; min-width: 100%; width: max-content; max-width: min(340px, calc(100vw - 32px)); max-height: 320px; overflow-y: auto; margin: 0; padding: 6px; list-style: none; border-radius: var(--radius-md); border: 1px solid var(--borders); background: var(--surface-raised); box-shadow: 0 18px 44px rgba(0, 0, 0, .5); animation: dropdown-in .14s var(--ease-out); }
+.dropdown-list.align-start { left: 0; }
+.dropdown-list.align-end { right: 0; }
+.dropdown-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text); font-size: 14px; cursor: pointer; }
+.dropdown-list li.active { background: var(--surface-hover); }
+.dropdown-list li.selected { color: var(--text-strong); font-weight: 600; }
+.dropdown-option-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.dropdown-option-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropdown-option-text small { color: var(--text-faint); font: 400 12px/1.3 var(--font-mono); }
+.dropdown-check { flex-shrink: 0; color: var(--ice-white); }
+.locale-dropdown .dropdown-button { height: 36px; padding: 0 10px 0 12px; background: var(--surface); font-size: 13px; }
+.locale-dropdown .dropdown-button:hover, .locale-dropdown.open .dropdown-button { background: var(--surface-hover); }
+.locale-dropdown .dropdown-option-text small { font-family: var(--font-ui); }
+.inline-dropdown .dropdown-button { height: 34px; padding: 0 10px 0 12px; background: var(--surface-raised); font-size: 13px; }
+.v2-toolbar .wallet-dropdown .dropdown-button { padding-left: 12px; }
+@keyframes dropdown-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dropdown-list { animation: none; } }
+.update-toast { position: fixed; right: 20px; bottom: 20px; z-index: 70; display: flex; gap: 14px; width: min(400px, calc(100vw - 32px)); padding: 16px; border-radius: var(--radius-lg); border: 1px solid var(--borders); background: var(--surface-raised); box-shadow: 0 24px 60px rgba(0, 0, 0, .55); animation: dropdown-in .2s var(--ease-out); }
+.update-toast-body { display: grid; gap: 6px; min-width: 0; }
+.update-toast-body strong { color: var(--text-strong); }
+.update-toast-body span, .update-toast-body small { color: var(--text-muted); font-size: 13px; }
+.update-toast .button-row { margin-top: 6px; }
+.switch-row { align-items: flex-start; }
+.switch-row span { display: grid; gap: 3px; }
+.switch-row small { color: var(--text-muted); font-size: 13px; font-weight: 400; }
+@media (max-width: 760px) {
+  .topbar .wallet-dropdown .dropdown-button { max-width: 150px; padding-right: 10px; font-size: 13px; }
+  .topbar .locale-dropdown .dropdown-button { padding: 0 8px; }
+}
+@media (max-width: 370px) {
+  .topbar .wallet-dropdown .dropdown-button { max-width: 112px; }
+  .topbar .wallet-dropdown .dropdown-chevron { display: none; }
+}

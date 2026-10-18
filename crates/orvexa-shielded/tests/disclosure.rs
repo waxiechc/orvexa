@@ -4,7 +4,7 @@ use orchard::keys::Scope;
 use orvexa_shielded::{
     disclosure::{DisclosureError, PaymentReceipt, PublicConsent, ViewingKey},
     envelope::Envelope,
-    ledger::{Block, Ledger, Params},
+    ledger::{test_producer, Block, Ledger, Params},
     seed_file::{self, SeedFileError},
     seed_wallet::{Access, SeedWallet},
     wallet::{build_genesis, WalletError},
@@ -40,11 +40,13 @@ impl Net {
     }
     fn mine(&mut self, txs: Vec<Envelope>) {
         let height = self.ledger.height() + 1;
-        let block = Block {
+        let block = Block::produce(
             height,
-            prev: self.ledger.tip(),
-            txs: txs.iter().map(Envelope::encode).collect(),
-        };
+            self.ledger.tip(),
+            txs.iter().map(Envelope::encode).collect(),
+            &test_producer(),
+            &self.ledger.chain_id(),
+        );
         self.ledger.apply_block(&block).unwrap();
         self.a.scan_block(height, &txs).unwrap();
         self.b.scan_block(height, &txs).unwrap();

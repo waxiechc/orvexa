@@ -48,7 +48,7 @@ cargo +1.93.0 build -p orvexa-web-wallet --target wasm32-unknown-unknown --relea
 wasm-bindgen --target web --out-dir web/public/wasm --out-name orvexa_web_wallet target/wasm32-unknown-unknown/release/orvexa_web_wallet.wasm
 (cd web && npm run build)
 
-RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=+crt-static" ORVEXA_DESKTOP_WEB_DIR="$PWD/web/dist" \
+RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=+crt-static" ORVEXA_DESKTOP_WEB_DIR="$PWD/web/dist" ORVEXA_RELEASE="$version" \
   cargo xwin build --release --locked --target "$target" --target-dir target/windows \
   -p orvexa-desktop -p orvexa-node -p orvexa-cli
 

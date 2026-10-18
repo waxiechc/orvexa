@@ -20,6 +20,7 @@ pub mod envelope;
 pub mod keys;
 pub mod ledger;
 pub mod node;
+pub mod profile;
 pub mod seed_file;
 pub mod seed_wallet;
 pub mod store;

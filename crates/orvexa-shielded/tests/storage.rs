@@ -2,7 +2,7 @@
 //! write, and detection of a tampered store.
 
 use orvexa_shielded::{
-    ledger::{Block, Ledger, LedgerError, Params, ProofCheck},
+    ledger::{test_producer, Block, Ledger, LedgerError, Params, ProofCheck},
     store::{Fault, Store, StoreError},
     wallet::{build_genesis, Wallet},
     Envelope,
@@ -50,11 +50,13 @@ impl Chain {
             .transfer(ledger, self.b.address, amount, 10, 20)
             .unwrap()
             .encode();
-        Block {
-            height: ledger.height() + 1,
-            prev: ledger.tip(),
-            txs: vec![tx],
-        }
+        Block::produce(
+            ledger.height() + 1,
+            ledger.tip(),
+            vec![tx],
+            &test_producer(),
+            &ledger.chain_id(),
+        )
     }
 
     fn accept(&mut self, ledger_leaves_before: u64, block: Block) {
@@ -106,11 +108,13 @@ fn reopen_recomputes_identical_state_fast_and_full() {
 
     // Double spend is still rejected after restart.
     let mut reopened = Store::open(&dir.join("v2.sqlite"), ProofCheck::Skip).unwrap();
-    let replay = Block {
-        height: 3,
-        prev: reopened.ledger().tip(),
-        txs: block.txs,
-    };
+    let replay = Block::produce(
+        3,
+        reopened.ledger().tip(),
+        block.txs,
+        &test_producer(),
+        &reopened.ledger().chain_id(),
+    );
     assert_eq!(
         reopened.apply_block(&replay),
         Err(StoreError::Ledger(LedgerError::NullifierAlreadySpent))
@@ -121,10 +125,17 @@ fn reopen_recomputes_identical_state_fast_and_full() {
 fn rejected_block_writes_nothing() {
     let dir = scratch("rejected");
     let (chain, mut store) = store_with_one_block(&dir);
-    let mut bad = chain.next(store.ledger(), 1_000);
-    let tx = &mut bad.txs[0];
+    let mut tx = chain.next(store.ledger(), 1_000).txs.remove(0);
     let last = tx.len() - 1;
     tx[last] ^= 1; // binding signature
+                   // Even a block the producer signs is refused when a transaction inside is invalid.
+    let bad = Block::produce(
+        store.ledger().height() + 1,
+        store.ledger().tip(),
+        vec![tx],
+        &test_producer(),
+        &store.ledger().chain_id(),
+    );
     let before = store.ledger().state_digest();
     assert_eq!(
         store.apply_block(&bad),
@@ -256,14 +267,13 @@ fn tampered_store_is_detected() {
         conn.execute("UPDATE blocks SET body = ?1 WHERE height = 1", [body])
             .unwrap();
     }
-    assert_eq!(
-        Store::open(&dir.join("v2.sqlite"), ProofCheck::Skip).err(),
-        Some(StoreError::Corrupt("block id"))
-    );
-    assert_eq!(
-        Store::open(&dir.join("v2.sqlite"), ProofCheck::Verify).err(),
-        Some(StoreError::Ledger(LedgerError::Authorization))
-    );
+    // The edited body no longer matches the producer's signature.
+    for mode in [ProofCheck::Skip, ProofCheck::Verify] {
+        assert_eq!(
+            Store::open(&dir.join("v2.sqlite"), mode).err(),
+            Some(StoreError::Ledger(LedgerError::BadProducerSignature))
+        );
+    }
 
     std::fs::write(dir.join("v2.sqlite"), &original).unwrap();
     assert!(Store::open(&dir.join("v2.sqlite"), ProofCheck::Verify).is_ok());

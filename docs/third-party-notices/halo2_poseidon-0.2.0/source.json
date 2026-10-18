@@ -1,0 +1,24 @@
+{
+    "package": "halo2_poseidon",
+    "version": "0.2.0",
+    "repository": "https://github.com/zcash/halo2",
+    "commit": "31bae80e65763594e455101911f3fc3f7da4ed21",
+    "declared_license": "MIT OR Apache-2.0",
+    "sources": [
+        {
+            "url": "https://raw.githubusercontent.com/zcash/halo2/31bae80e65763594e455101911f3fc3f7da4ed21/COPYING.md",
+            "file": "COPYING.md",
+            "sha256": "1b0f8332e3f8b72835e1bf816a7471103c74e82b16c149e08f36136e175d9846"
+        },
+        {
+            "url": "https://raw.githubusercontent.com/zcash/halo2/31bae80e65763594e455101911f3fc3f7da4ed21/LICENSE-APACHE",
+            "file": "LICENSE-APACHE",
+            "sha256": "3708458dee7f359ac6c9c5558023ed481be87e5372c43ebd7f2ca7ad23c12026"
+        },
+        {
+            "url": "https://raw.githubusercontent.com/zcash/halo2/31bae80e65763594e455101911f3fc3f7da4ed21/LICENSE-MIT",
+            "file": "LICENSE-MIT",
+            "sha256": "cc6e3688129428de0b1f9e35d796955f0c826671700097b26a920b3112a7a697"
+        }
+    ]
+}

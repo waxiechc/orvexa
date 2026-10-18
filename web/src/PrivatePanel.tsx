@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Blocks, Check, Eye, FileKey2, Globe2, KeyRound, LockKeyhole, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Upload, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Blocks, Check, Download, Eye, FileKey2, Globe2, KeyRound, LockKeyhole, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Upload, X } from 'lucide-react';
 import AddressMark from './AddressMark';
+import Dropdown from './Dropdown';
 import { Button, CopyButton, Empty, Hash, Modal, Notice } from './App';
 import { atoms, short } from './adapter';
 import { t } from './i18n';
@@ -102,14 +103,37 @@ function Unlock({ id, name, done }: { id: string; name: string; done: () => void
 }
 
 function CreateNetwork({ wallet, state, done }: { wallet?: WalletView; state: State; done: () => void }) {
-  const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  const create = async () => { if (!wallet) return; setBusy(true); setError(''); try { await v2.createNetwork(wallet.id); done(); } catch (e) { setError(message(e)); } finally { setBusy(false); } };
-  return <section className="surface-section"><div className="section-heading"><div><h2>{t("Create the local private test network")}</h2>
-    <p>{t("A new chain only on this computer. All {v0} test atoms go to the selected wallet; send them on to your other v2 wallets.", { v0: atoms(state.supply) })}</p></div></div>
-    {wallet?.access === 'spend' ? <Button disabled={busy} onClick={create}>{busy ? <Busy>{t("Proving the genesis…")}</Busy> : <><Blocks size={17}/>{t("Create network for {v0}", { v0: wallet.name })}</>}</Button>
-      : <Notice>{t("Select and unlock a wallet with a recovery phrase first.")}</Notice>}
+  const [busy, setBusy] = useState(''); const [error, setError] = useState('');
+  const run = async (what: string, action: () => Promise<unknown>) => { setBusy(what); setError(''); try { await action(); done(); } catch (e) { setError(message(e)); } finally { setBusy(''); } };
+  const importFile = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 65536) { setError('This network file is too large.'); return; }
+    await run('file', async () => v2.joinNetwork(await file.text()));
+  };
+  return <section className="surface-section"><div className="section-heading"><div><h2>{t("Choose a private v2 network")}</h2>
+    <p>{t("Join a shared test network, or start a local one that lives only on this computer.")}</p></div></div>
+    <div className="v2-choices">
+      <div className="v2-choice"><h3>{t("Join a shared network")}</h3>
+        <p>{t("This computer keeps its own copy of the chain and checks every block and proof itself. Blocks come from the network's public node.")}</p>
+        {state.network.default_available && <Button disabled={!!busy} onClick={() => run('default', () => v2.joinNetwork())}>{busy === 'default' ? <Busy>{t("Connecting…")}</Busy> : <><Globe2 size={17}/>{t("Join the ORVEXA v2 test network")}</>}</Button>}
+        <label className="file-picker-button">{busy === 'file' ? <Busy>{t("Checking the network file…")}</Busy> : <><Upload size={16}/>{t("Import a network file")}</>}<input type="file" accept=".json,application/json" className="sr-only" disabled={!!busy} onChange={e => void importFile(e.target.files?.[0])}/></label>
+        <p className="caption">{t("Get the network file from the network's operator. It is public and is fully checked before use.")}</p>
+      </div>
+      <div className="v2-choice"><h3>{t("Create the local private test network")}</h3>
+        <p>{t("A new chain only on this computer. All {v0} test atoms go to the selected wallet; send them on to your other v2 wallets.", { v0: atoms(state.supply) })}</p>
+        {wallet?.access === 'spend' ? <Button kind="secondary" disabled={!!busy} onClick={() => run('local', () => v2.createNetwork(wallet.id))}>{busy === 'local' ? <Busy>{t("Proving the genesis…")}</Busy> : <><Blocks size={17}/>{t("Create network for {v0}", { v0: wallet.name })}</>}</Button>
+          : <Notice>{t("Select and unlock a wallet with a recovery phrase first.")}</Notice>}
+      </div>
+    </div>
     {error && <Notice error>{error}</Notice>}
   </section>;
+}
+
+async function shareProfile() {
+  const profile = await v2.profile();
+  const url = URL.createObjectURL(new Blob([JSON.stringify(profile, null, 2) + '\n'], { type: 'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = 'orvexa-v2-network.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function Overview({ wallet, state, changed }: { wallet: WalletView; state: State; changed: () => void }) {
@@ -131,11 +155,13 @@ function Overview({ wallet, state, changed }: { wallet: WalletView; state: State
     <section className="network-card" aria-labelledby="v2-network-title">
       <div className="card-heading"><h2 id="v2-network-title">{t("Private network v2")}</h2><span className={`state-pill ${state.network.exists ? 'online' : ''}`}><span className="connection-dot"/>{state.network.exists ? t("Online") : t("Not created")}</span></div>
       <div className="network-height"><span>{t("Block height")}</span><strong>{state.network.height === null ? '—' : `#${atoms(String(state.network.height))}`}</strong></div>
-      <dl className="network-facts"><div><dt>{t("Pending transfers")}</dt><dd>{state.network.mempool}</dd></div><div><dt>{t("Remaining supply")}</dt><dd>{state.network.remaining_supply ? atoms(state.network.remaining_supply) : '—'}</dd></div><div><dt>{t("Chain ID")}</dt><dd><code>{state.network.chain_id ? short(state.network.chain_id, 6) : '—'}</code></dd></div></dl>
+      {state.network.role && <p className="caption">{state.network.role === 'producer' ? t("This computer produces the blocks of this network.") : state.network.upstream_height !== null && state.network.height !== null && state.network.upstream_height > state.network.height ? t("Syncing: block #{v0} of #{v1}.", { v0: state.network.height, v1: state.network.upstream_height }) : t("Up to date with {v0}. Every block is checked here.", { v0: state.network.upstream || '' })}</p>}
+      <dl className="network-facts"><div><dt>{t("Network")}</dt><dd>{state.network.name || '—'}</dd></div><div><dt>{t("Pending transfers")}</dt><dd>{state.network.mempool}</dd></div><div><dt>{t("Remaining supply")}</dt><dd>{state.network.remaining_supply ? atoms(state.network.remaining_supply) : '—'}</dd></div><div><dt>{t("Chain ID")}</dt><dd><code>{state.network.chain_id ? short(state.network.chain_id, 6) : '—'}</code></dd></div></dl>
       <div className="dialog-body">
         <span className="field-label">{t("Receiving address")}</span><Hash value={address} label="Copy address"/>
         {wallet.access !== 'view_full' && <Button kind="secondary" onClick={async () => { setAddress((await v2.newAddress(wallet.id)).address); changed(); }}><Plus size={16}/>{t("New address")}</Button>}
         <p className="caption">{t("Every new address is unlinkable to the others, and all of them reach this wallet.")}</p>
+        {state.network.exists && <Button kind="ghost" onClick={() => void shareProfile()}><Download size={16}/>{t("Share the network file")}</Button>}
       </div>
     </section>
   </div>;
@@ -293,7 +319,9 @@ export default function PrivatePanel({ route }: { route: string }) {
     <div className="notice"><ShieldCheck size={18}/><div>{t("Separate private test network v2. Amounts, addresses and payment links are hidden on the chain. v1 test atoms do not move here and have no value.")}</div></div>
     {error && <Notice error>{error}</Notice>}
     <div className="v2-toolbar">
-      {!!state?.wallets.length && <label className="wallet-picker"><span className="sr-only">{t("Private wallet")}</span><select aria-label={t("Private wallet")} value={active} onChange={e => choose(e.target.value)}>{state.wallets.map(w => <option key={w.id} value={w.id}>{w.name}{w.access !== 'spend' ? ` · ${t("view only")}` : w.unlocked ? '' : ` · ${t("locked")}`}</option>)}</select></label>}
+      {!!state?.wallets.length && <Dropdown className="wallet-dropdown" label={t("Private wallet")} value={active} onChange={choose}
+        leading={summary?.address ? <AddressMark address={summary.address} size={26}/> : undefined}
+        options={state.wallets.map(w => ({ value: w.id, label: w.name, hint: w.access !== 'spend' ? t("view only") : w.unlocked ? short(w.address || '', 6) : t("locked"), icon: <AddressMark address={w.address || w.id} size={24}/> }))}/>}
       <Button onClick={() => setDialog('create')}><Plus size={16}/>{t("New v2 wallet")}</Button>
       <Button kind="secondary" onClick={() => setDialog('restore')}><Upload size={16}/>{t("Restore from phrase")}</Button>
       <Button kind="secondary" onClick={() => setDialog('watch')}><Eye size={16}/>{t("Add view-only")}</Button>

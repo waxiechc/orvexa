@@ -28,6 +28,7 @@ hex.workspace = true
 bech32 = "=0.11.1"
 tokio.workspace = true
 axum.workspace = true
+ed25519-dalek.workspace = true
 tower.workspace = true
 reqwest.workspace = true
 

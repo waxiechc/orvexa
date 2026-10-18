@@ -27,6 +27,7 @@ try {
         try {
             $env:RUSTFLAGS = (($savedFlags + ' -C target-feature=+crt-static').Trim())
             $env:ORVEXA_DESKTOP_WEB_DIR = (Resolve-Path -LiteralPath 'web\dist').Path
+            $env:ORVEXA_RELEASE = $Version
             & cargo build --release --locked --target-dir target/friends -p orvexa-desktop -p orvexa-node -p orvexa-cli
             if ($LASTEXITCODE) { throw 'Desktop build failed' }
         } finally {

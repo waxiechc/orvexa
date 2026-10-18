@@ -17,8 +17,10 @@
 
 use crate::address;
 use crate::disclosure::{PaymentReceipt, PublicConsent, ViewingKey};
+use crate::envelope::Envelope;
 use crate::ledger::Params;
-use crate::node::{embed, NodeConfig, NodeHandle, Role};
+use crate::node::{embed, NodeConfig, NodeHandle, ProducerKey, Role};
+use crate::profile::{create_producer_key, read_producer_key, NetworkProfile};
 use crate::seed_file::{self, SeedFileError};
 use crate::seed_wallet::{Access, SeedWallet, WORDS};
 use crate::wallet::{build_genesis, WalletError};
@@ -71,6 +73,7 @@ struct Draft {
 
 struct Inner {
     node: Option<(Router, NodeHandle)>,
+    profile_name: Option<String>,
     index: Vec<IndexEntry>,
     unlocked: HashMap<String, Session>,
     watch: HashMap<String, (String, SeedWallet)>,
@@ -132,15 +135,21 @@ impl DesktopV2 {
             block_every,
             inner: Mutex::new(Inner {
                 node: None,
+                profile_name: None,
                 index,
                 unlocked: HashMap::new(),
                 watch: HashMap::new(),
                 drafts: HashMap::new(),
             }),
         });
-        if service.root.join("node").join("v2.sqlite").exists() {
-            let node = service.start_node(None, None).await?;
-            service.inner.lock().await.node = Some(node);
+        if service.profile_path().exists() {
+            let text =
+                std::fs::read_to_string(service.profile_path()).map_err(|e| e.to_string())?;
+            let profile = NetworkProfile::parse(&text)?;
+            let node = service.start_node(&profile).await?;
+            let mut inner = service.inner.lock().await;
+            inner.node = Some(node);
+            inner.profile_name = Some(profile.name);
         }
         let weak = Arc::downgrade(&service);
         tokio::spawn(async move {
@@ -154,21 +163,44 @@ impl DesktopV2 {
         Ok(service)
     }
 
-    async fn start_node(
-        &self,
-        genesis: Option<Vec<u8>>,
-        params: Option<Params>,
-    ) -> Result<(Router, NodeHandle), String> {
+    /// Producer when this computer holds the network's producer key,
+    /// otherwise a follower of the profile's first public node.
+    async fn start_node(&self, profile: &NetworkProfile) -> Result<(Router, NodeHandle), String> {
+        let key_path = self.root.join("node").join("producer.key");
+        let role = if key_path.exists() {
+            Role::Producer {
+                every: self.block_every,
+                key: ProducerKey(Arc::new(read_producer_key(&key_path)?)),
+            }
+        } else {
+            let upstream = profile
+                .nodes
+                .first()
+                .cloned()
+                .ok_or("this network lists no public node to follow")?;
+            Role::Follower {
+                upstream,
+                poll: self.block_every.max(Duration::from_millis(500)),
+            }
+        };
         embed(NodeConfig {
             data_dir: self.root.join("node"),
-            genesis,
-            params: params.unwrap_or_else(|| Params::test(SUPPLY)),
+            genesis: Some(profile.genesis()?),
+            params: profile.params()?,
             listen: "127.0.0.1:0".parse().expect("address"),
-            role: Role::Producer {
-                every: self.block_every,
-            },
+            role,
         })
         .await
+    }
+
+    fn profile_path(&self) -> PathBuf {
+        self.root.join("network.json")
+    }
+
+    fn save_profile(&self, profile: &NetworkProfile) -> Result<(), String> {
+        let temp = self.root.join(format!(".network-{}.tmp", random_id()));
+        std::fs::write(&temp, profile.to_json()).map_err(|e| e.to_string())?;
+        std::fs::rename(&temp, self.profile_path()).map_err(|e| e.to_string())
     }
 
     /// Locks every wallet unused for longer than `idle`.
@@ -196,6 +228,8 @@ impl DesktopV2 {
             .route("/v2/desktop/watch", post(watch))
             .route("/v2/desktop/receipt/verify", post(verify_receipt))
             .route("/v2/desktop/network/create", post(create_network))
+            .route("/v2/desktop/network/join", post(join_network))
+            .route("/v2/desktop/network/profile", get(network_profile))
             .route_layer(middleware::from_fn_with_state(
                 self.clone(),
                 require_session,
@@ -291,10 +325,17 @@ async fn proxy(State(s): State<Arc<DesktopV2>>, request: Request<Body>) -> Respo
 #[derive(Serialize)]
 struct NetworkView {
     exists: bool,
+    name: Option<String>,
+    /// "producer" (this computer seals blocks) or "follower".
+    role: Option<&'static str>,
+    upstream: Option<String>,
+    upstream_height: Option<u64>,
     chain_id: Option<String>,
     height: Option<u64>,
     remaining_supply: Option<String>,
     mempool: usize,
+    /// A built-in public test network is available to join.
+    default_available: bool,
 }
 
 #[derive(Serialize)]
@@ -346,22 +387,42 @@ fn access_name(a: Access) -> &'static str {
 }
 
 fn network_view(inner: &Inner) -> NetworkView {
+    let default_available = default_profile().is_some();
     match &inner.node {
         Some((_, h)) => NetworkView {
             exists: true,
+            name: inner.profile_name.clone(),
+            role: Some(h.role()),
+            upstream: h.upstream().map(str::to_owned),
+            upstream_height: h.upstream_height(),
             chain_id: Some(hex::encode(h.chain_id())),
             height: Some(h.height()),
             remaining_supply: Some(h.with_ledger(|l| l.remaining_supply()).to_string()),
             mempool: h.mempool_len(),
+            default_available,
         },
         None => NetworkView {
             exists: false,
+            name: None,
+            role: None,
+            upstream: None,
+            upstream_height: None,
             chain_id: None,
             height: None,
             remaining_supply: None,
             mempool: 0,
+            default_available,
         },
     }
+}
+
+/// The public test network this build ships with, if one is published.
+pub fn default_profile() -> Option<NetworkProfile> {
+    let text = include_str!("../networks/default.json").trim();
+    if text == "null" {
+        return None;
+    }
+    NetworkProfile::parse(text).ok()
 }
 
 fn sync(node: &Option<(Router, NodeHandle)>, wallet: &mut SeedWallet) -> Result<(), Failure> {
@@ -963,14 +1024,27 @@ async fn create_network(
                 "Unlock the wallet that should receive the test atoms.".into(),
             )
         })?;
+    let internal = |e: String| Failure(StatusCode::INTERNAL_SERVER_ERROR, e);
+    std::fs::create_dir_all(s.root.join("node")).map_err(|e| internal(e.to_string()))?;
+    let key_path = s.root.join("node").join("producer.key");
+    let key = if key_path.exists() {
+        read_producer_key(&key_path)
+    } else {
+        create_producer_key(&key_path)
+    }
+    .map_err(internal)?;
     let mut params = Params::test(SUPPLY);
     crate::keys::os_rng().fill_bytes(&mut params.salt);
+    params.producer = key.verifying_key().to_bytes();
     let genesis = tokio::task::block_in_place(|| build_genesis(&params, &[(recipient, SUPPLY)]));
-    let node = s
-        .start_node(Some(genesis), Some(params))
-        .await
-        .map_err(|e| Failure(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    let chain_id = Envelope::decode(&genesis)
+        .map_err(|e| internal(format!("{e:?}")))?
+        .chain_id;
+    let profile = NetworkProfile::new("Локальная сеть v2", &params, &genesis, chain_id, Vec::new());
+    s.save_profile(&profile).map_err(internal)?;
+    let node = s.start_node(&profile).await.map_err(internal)?;
     inner.node = Some(node);
+    inner.profile_name = Some(profile.name);
     let Inner {
         node,
         unlocked,
@@ -984,4 +1058,56 @@ async fn create_network(
         tokio::task::block_in_place(|| sync(node, w))?;
     }
     Ok(Json(serde_json::json!({ "network": network_view(&inner) })))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JoinNetwork {
+    /// Profile JSON text, or omitted for the built-in public test network.
+    profile: Option<String>,
+}
+
+async fn join_network(
+    State(s): State<Arc<DesktopV2>>,
+    Json(req): Json<JoinNetwork>,
+) -> Reply<serde_json::Value> {
+    let profile = match &req.profile {
+        Some(text) => NetworkProfile::parse(text).map_err(|e| {
+            eprintln!("ORVEXA v2 network file refused: {e}");
+            bad("This network file cannot be used: it is damaged or belongs to another network.")
+        })?,
+        None => default_profile().ok_or_else(|| bad("This build has no public v2 test network yet. Import a network file from its operator."))?,
+    };
+    if profile.nodes.is_empty() {
+        return Err(bad("This network file lists no public node to connect to."));
+    }
+    let mut inner = s.inner.lock().await;
+    if inner.node.is_some() {
+        return Err(Failure(
+            StatusCode::CONFLICT,
+            "The private v2 test network already exists.".into(),
+        ));
+    }
+    let internal = |e: String| Failure(StatusCode::INTERNAL_SERVER_ERROR, e);
+    s.save_profile(&profile).map_err(internal)?;
+    let node = s.start_node(&profile).await.map_err(internal)?;
+    inner.node = Some(node);
+    inner.profile_name = Some(profile.name);
+    Ok(Json(serde_json::json!({ "network": network_view(&inner) })))
+}
+
+/// The current network file, to share with others.
+async fn network_profile(State(s): State<Arc<DesktopV2>>) -> Response {
+    match std::fs::read_to_string(s.profile_path()) {
+        Ok(text) => (
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            text,
+        )
+            .into_response(),
+        Err(_) => Failure(
+            StatusCode::NOT_FOUND,
+            "The private v2 test network has not been created yet.".into(),
+        )
+        .into_response(),
+    }
 }

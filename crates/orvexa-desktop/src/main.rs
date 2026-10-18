@@ -124,7 +124,9 @@ fn run() -> Result<()> {
         let private = orvexa_shielded::desktop::DesktopV2::open(&data.join("v2"), session.clone())
             .await
             .map_err(anyhow::Error::msg)?;
-        let app = control.router_with(&web, &origin, private.router())?;
+        let updates = orvexa_update::Updater::new(&data, session.clone());
+        updates.start();
+        let app = control.router_with(&web, &origin, private.router().merge(updates.router()))?;
         let server = tokio::spawn(async move { axum::serve(listener, app).await });
         control.resume().await;
         Ok::<_, anyhow::Error>((origin, server))

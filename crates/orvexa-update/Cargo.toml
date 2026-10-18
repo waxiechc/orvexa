@@ -1,0 +1,24 @@
+[package]
+name = "orvexa-update"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Signed self-update for ORVEXA Desktop: manifest verification, download, staged install, release signing tool."
+
+[dependencies]
+ed25519-dalek.workspace = true
+sha2.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+axum.workspace = true
+subtle.workspace = true
+getrandom.workspace = true
+reqwest = { workspace = true, features = ["rustls-tls"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tower.workspace = true

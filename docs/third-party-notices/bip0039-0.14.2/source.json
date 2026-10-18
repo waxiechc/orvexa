@@ -1,0 +1,14 @@
+{
+    "package": "bip0039",
+    "version": "0.14.2",
+    "repository": "https://github.com/koushiro/rust-bips",
+    "commit": "779319fdaaaa570c5f6859aec4802d3cf6ba2881",
+    "declared_license": "Apache-2.0",
+    "sources": [
+        {
+            "url": "https://raw.githubusercontent.com/koushiro/rust-bips/779319fdaaaa570c5f6859aec4802d3cf6ba2881/LICENSE",
+            "file": "LICENSE",
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+    ]
+}

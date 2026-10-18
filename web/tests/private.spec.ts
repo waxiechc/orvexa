@@ -4,6 +4,13 @@ import { mkdirSync, mkdtempSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
+/** Opens an app dropdown by its label and picks an option, like a person would. */
+async function pick(page: Page, label: string, option: string | RegExp) {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option }).click();
+}
+
+
 // Private v2 inside the real ORVEXA Desktop controller (headless). The page
 // gets the per-launch session exactly as the native window would.
 const root = resolve(import.meta.dirname, '../..');
@@ -66,13 +73,12 @@ test('private v2 wallet, network, transfer, receipt and viewing key in the deskt
   await page.screenshot({ path: resolve(directory, 'private-overview.png'), fullPage: true });
 
   await createWallet(page, 'Второй');
-  const select = page.getByLabel('Приватный кошелёк');
-  await expect(select).toHaveValue(/.+/);
+  await expect(page.getByRole('combobox', { name: 'Приватный кошелёк', exact: true })).toBeVisible();
   const second = page.locator('.network-card .hash-value code');
   await expect(second).toHaveText(/^ovxt1/, { timeout: 60000 });
   const address = await second.innerText();
 
-  await select.selectOption({ label: 'Основной' });
+  await pick(page, 'Приватный кошелёк', /^Основной/);
   await expect.poll(async () => digits(await balance(page).innerText()), { timeout: 30000 }).toBe('1000000');
   await page.locator('.tabbar').getByRole('link', { name: 'Отправить' }).click();
   await page.getByLabel('Сумма').fill('250000');
@@ -83,12 +89,12 @@ test('private v2 wallet, network, transfer, receipt and viewing key in the deskt
   await expect(page.getByRole('heading', { name: 'Приватный перевод отправлен' })).toBeVisible({ timeout: 60000 });
   await page.getByRole('button', { name: 'Готово' }).click();
 
-  await select.selectOption({ label: 'Второй' });
+  await pick(page, 'Приватный кошелёк', /^Второй/);
   await page.locator('.tabbar').getByRole('link', { name: 'Обзор' }).click();
   await expect.poll(async () => digits(await balance(page).innerText()), { timeout: 60000 }).toBe('250000');
 
   // Receipt from the sender's history, checked on the Receipts page.
-  await select.selectOption({ label: 'Основной' });
+  await pick(page, 'Приватный кошелёк', /^Основной/);
   await page.locator('.tabbar').getByRole('link', { name: 'История' }).click();
   await expect(page.getByText('Отправлено')).toBeVisible({ timeout: 30000 });
   await page.locator('.activity-row', { hasText: 'Отправлено' }).getByRole('button', { name: 'Квитанция' }).click();

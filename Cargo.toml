@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/orvexa-crypto", "crates/orvexa-core", "crates/orvexa-wallet", "crates/orvexa-rpc", "crates/orvexa-node", "crates/orvexa-cli", "crates/orvexa-tests", "crates/orvexa-web-wallet", "crates/orvexa-desktop", "crates/orvexa-shielded"]
+members = ["crates/orvexa-crypto", "crates/orvexa-core", "crates/orvexa-wallet", "crates/orvexa-rpc", "crates/orvexa-node", "crates/orvexa-cli", "crates/orvexa-tests", "crates/orvexa-web-wallet", "crates/orvexa-desktop", "crates/orvexa-shielded", "crates/orvexa-update"]
 resolver = "2"
 
 [workspace.package]
@@ -37,6 +37,7 @@ orvexa-wallet = { path = "crates/orvexa-wallet" }
 orvexa-rpc = { path = "crates/orvexa-rpc" }
 orvexa-node = { path = "crates/orvexa-node" }
 orvexa-shielded = { path = "crates/orvexa-shielded" }
+orvexa-update = { path = "crates/orvexa-update" }
 
 [profile.release]
 overflow-checks = true

@@ -1,0 +1,19 @@
+{
+    "package": "uint",
+    "version": "0.9.5",
+    "repository": "https://github.com/paritytech/parity-common",
+    "commit": "c41d51df8a314150c46cbbff31f8140a35dfb02c",
+    "declared_license": "MIT OR Apache-2.0",
+    "sources": [
+        {
+            "url": "https://raw.githubusercontent.com/paritytech/parity-common/c41d51df8a314150c46cbbff31f8140a35dfb02c/LICENSE-APACHE2",
+            "file": "LICENSE-APACHE2",
+            "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+            "url": "https://raw.githubusercontent.com/paritytech/parity-common/c41d51df8a314150c46cbbff31f8140a35dfb02c/LICENSE-MIT",
+            "file": "LICENSE-MIT",
+            "sha256": "4fd70c448a560ab3226168373907c277e610a6cc21f8d618decee144421070ca"
+        }
+    ]
+}

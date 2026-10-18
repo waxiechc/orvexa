@@ -5,7 +5,9 @@ import { Children, useCallback, useEffect, useRef, useState, type FormEvent, typ
 import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Blocks, Check, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Copy, Download, FileKey2, Globe2, History as HistoryIcon, Home, KeyRound, LockKeyhole, Menu, Plus, RefreshCw, Search, Settings2, ShieldCheck, Upload, Wallet as WalletIcon, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import NodePanel from './NodePanel';
+import Dropdown from './Dropdown';
 import PrivatePanel from './PrivatePanel';
+import { UpdateToast, UpdateSettings } from './Updates';
 import { atoms, availableBalance, errorText, node, NodeError, parseNodeJson, requestRaw, short, type Balance, type BlockDetails, type Genesis, type History, type Status, type TxDetails } from './adapter';
 import { downloadWallet, localCrypto, readWallets, saveWallets, type Wallet } from './vault';
 
@@ -71,10 +73,9 @@ export function Modal({ title, children, close, busy = false }: { title: string;
   </dialog>;
 }
 function WalletPicker({ wallets, active, select }: { wallets: Wallet[]; active?: Wallet; select: (id: string) => void }) {
-  return <label className="wallet-picker">{active ? <AddressMark address={active.address} size={26}/> : <span className="wallet-picker-empty"><WalletIcon size={15}/></span>}<span className="sr-only">{t("Active wallet")}</span>
-    <select aria-label={t("Active wallet")} value={active?.id || ''} onChange={e => select(e.target.value)}>
-      {!active && <option value="">{t("Select wallet")}</option>}{wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-    </select><ChevronDown size={15}/></label>;
+  return <Dropdown className="wallet-dropdown" align="end" label={t("Active wallet")} value={active?.id || ''} placeholder={t("Select wallet")} onChange={select}
+    leading={active ? <AddressMark address={active.address} size={26}/> : <span className="wallet-picker-empty"><WalletIcon size={15}/></span>}
+    options={wallets.map(w => ({ value: w.id, label: w.name, hint: short(w.address.replace(/^void_test_/, ''), 5), icon: <AddressMark address={w.address} size={24}/> }))}/>;
 }
 function WalletDialog({ mode, add, close }: { mode: 'create' | 'restore'; add: (w: Wallet) => void; close: () => void }) {
   const [name, setName] = useState(''); const [password, setPassword] = useState(''); const [repeat, setRepeat] = useState('');
@@ -361,7 +362,7 @@ function Settings({ snapshot, observed, online, interval, setIntervalValue, adop
   const [ack, setAck] = useState(false);
   const pinned = localStorage.getItem('orvexa.chain');
   const mismatch = !!observed && observed.chain_id !== pinned;
-  return <div className="settings-layout"><section className="surface"><div className="panel-heading"><h2>{t("Network connection")}</h2><span className={`state-pill ${online ? 'online' : ''}`}><span className="connection-dot"/>{online ? t("Connected") : t("Offline")}</span></div><dl className="settings-list"><div><dt>{t("Node origin")}</dt><dd><code>{window.location.origin}</code></dd></div><div><dt>{t("Connection")}</dt><dd>{online ? t("Connected") : t("Unavailable or network mismatch")}</dd></div><div><dt>{t("Protocol")}</dt><dd>{observed ? t("v{v0} · transparent ledger", { v0: observed.protocol }) : t("Not read yet")}</dd></div><div><dt>{t("Refresh interval")}</dt><dd><select aria-label={t("Refresh interval")} value={interval} onChange={e => setIntervalValue(e.target.value)}><option value="5000">{t("5 seconds")}</option><option value="10000">{t("10 seconds")}</option><option value="30000">{t("30 seconds")}</option></select></dd></div></dl>
+  return <div className="settings-layout"><section className="surface"><div className="panel-heading"><h2>{t("Network connection")}</h2><span className={`state-pill ${online ? 'online' : ''}`}><span className="connection-dot"/>{online ? t("Connected") : t("Offline")}</span></div><dl className="settings-list"><div><dt>{t("Node origin")}</dt><dd><code>{window.location.origin}</code></dd></div><div><dt>{t("Connection")}</dt><dd>{online ? t("Connected") : t("Unavailable or network mismatch")}</dd></div><div><dt>{t("Protocol")}</dt><dd>{observed ? t("v{v0} · transparent ledger", { v0: observed.protocol }) : t("Not read yet")}</dd></div><div><dt>{t("Refresh interval")}</dt><dd><Dropdown className="inline-dropdown" align="end" label={t("Refresh interval")} value={interval} onChange={setIntervalValue} options={[{ value: '5000', label: t("5 seconds") }, { value: '10000', label: t("10 seconds") }, { value: '30000', label: t("30 seconds") }]}/></dd></div></dl>
     <div className="detail-callout"><span>{t("Pinned chain ID")}</span><code>{pinned || t("Not connected yet")}</code></div>
     {observed && <div className="detail-callout"><span>{t("Observed chain ID")}</span><code>{observed.chain_id}</code></div>}
     {mismatch && <div className="stack-form"><Notice>{t("The node belongs to a different network. Signing is disabled until you explicitly select that network. Existing keys and backups will not be migrated.")}</Notice><label className="checkbox-label"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)}/>{t("I verified this chain ID and want to use this test network.")}</label><Button disabled={!ack || observed?.protocol !== '1'} onClick={adopt}>{t("Use observed test network")}</Button></div>}
@@ -486,7 +487,7 @@ export default function App() {
       <div className="sidebar-foot"><div className="network-chip"><span className={`connection-dot ${online ? 'online' : ''}`}/><div><strong>{t("V1 testnet")}</strong><span>{t("Test atoms. No monetary value.")}</span></div></div></div>
     </aside>
     <div className="main-shell" inert={mobile && mobileNav}><header className="topbar"><button ref={menuButton} className="icon-button mobile-menu" aria-label={t("Open navigation")} aria-controls="primary-navigation" aria-expanded={mobileNav} onClick={() => setMobileNav(true)}><Menu size={21}/></button><img className="topbar-symbol" src="/brand/orvexa-symbol.svg" alt="" aria-hidden="true"/>
-      <div className="topbar-right">{page !== 'private' && <><div className={`connection-state ${connectionState}`} title={sync ? t("Syncing: block #{v0} of #{v1}. The balance may be incomplete.", { v0: atoms(sync.local), v1: atoms(sync.target) }) : undefined}><span className="connection-dot"/><span className="connection-text">{connection}</span></div><button className="icon-button refresh-button" onClick={refresh} disabled={refreshing} aria-label={t("Refresh node data")} title={t("Refresh node data")}><RefreshCw size={16} className={refreshing ? 'spinning' : ''}/></button></>}<label className="locale-picker"><span className="sr-only">{t("Language")}</span><select aria-label={t("Language")} value={locale} onChange={e => setLocale(e.target.value as 'ru' | 'en')}><option value="ru">RU</option><option value="en">EN</option></select></label>{page !== 'private' && <WalletPicker wallets={wallets} active={wallet} select={select}/>}</div></header>
+      <div className="topbar-right">{page !== 'private' && <><div className={`connection-state ${connectionState}`} title={sync ? t("Syncing: block #{v0} of #{v1}. The balance may be incomplete.", { v0: atoms(sync.local), v1: atoms(sync.target) }) : undefined}><span className="connection-dot"/><span className="connection-text">{connection}</span></div><button className="icon-button refresh-button" onClick={refresh} disabled={refreshing} aria-label={t("Refresh node data")} title={t("Refresh node data")}><RefreshCw size={16} className={refreshing ? 'spinning' : ''}/></button></>}<Dropdown className="locale-dropdown" align="end" label={t("Language")} value={locale} onChange={v => setLocale(v as 'ru' | 'en')} options={[{ value: 'ru', label: 'RU', hint: 'Русский' }, { value: 'en', label: 'EN', hint: 'English' }]}/>{page !== 'private' && <WalletPicker wallets={wallets} active={wallet} select={select}/>}</div></header>
       <main id="main-content" tabIndex={-1}><div className="page-heading"><h1>{title}</h1></div>
         {error && page !== 'node' && page !== 'private' && <Notice error>{error}{snapshot && <p>{t("Showing last known state from ")}{snapshot.checked.toLocaleTimeString(timeLocale())}{t(". Signing is disabled.")}</p>}</Notice>}
         {localError && <Notice error>{localError}</Notice>}
@@ -498,6 +499,7 @@ export default function App() {
         {page === 'wallets' && <Wallets wallets={wallets} active={wallet} select={select} create={showCreate} restore={showRestore} online={online} genesis={safeSnapshot?.genesis} rename={(id, name) => { try { update(wallets.map(w => w.id === id ? { ...w, name } : w)); } catch (e) { setLocalError(errorText(e)); } }} remove={id => { try { const next = wallets.filter(w => w.id !== id); update(next); if (selected === id) select(next[0]?.id || ''); } catch (e) { setLocalError(errorText(e)); } }}/>}
         {page === 'backup' && <Backup wallet={wallet} restore={showRestore}/>}
         {page === 'settings' && <Settings snapshot={safeSnapshot} observed={observed} online={online} interval={interval} setIntervalValue={setIntervalValue} produce={openProduce} adopt={() => { if (observed?.protocol === '1') { localStorage.setItem('orvexa.chain', observed.chain_id); setSnapshot(undefined); setReceipt(''); refresh(); } }}/>}
+        {page === 'settings' && <UpdateSettings/>}
         {page === 'explorer' && <Explorer route={route} snapshot={safeSnapshot} online={online} produce={openProduce}/>}
         {page === 'node' && <NodePanel changed={refresh}/>}
         {page === 'private' && <PrivatePanel route={route}/>}
@@ -505,6 +507,7 @@ export default function App() {
         <footer className="page-footer"><span>{snapshot ? t("State checked {v0}", { v0: snapshot.checked.toLocaleTimeString(timeLocale()) }) : t("Waiting for node")}</span><span>{t("No real funds")}</span></footer>
       </main>
     </div>
+    <UpdateToast/>
     {walletAction && <WalletDialog mode={walletAction} add={add} close={() => setWalletAction(null)}/>}
     {produce && snapshot && <ProduceDialog wallets={wallets} snapshot={snapshot} close={() => setProduce(false)} done={refresh}/>}
   </div>;

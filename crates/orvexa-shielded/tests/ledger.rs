@@ -12,7 +12,7 @@ use orchard::{
 };
 use orvexa_shielded::{
     envelope::{self, Envelope, EnvelopeError, ACTION_BYTES},
-    ledger::{empty_anchor, Block, Ledger, LedgerError, Params},
+    ledger::{empty_anchor, test_producer, Block, Ledger, LedgerError, Params},
     wallet::{build_envelope, build_genesis, RawTx, Wallet, WalletError},
 };
 use shardtree::{store::memory::MemoryShardStore, ShardTree};
@@ -60,11 +60,13 @@ fn net() -> Net {
 
 impl Net {
     fn block(&self, txs: Vec<Vec<u8>>) -> Block {
-        Block {
-            height: self.ledger.height() + 1,
-            prev: self.ledger.tip(),
+        Block::produce(
+            self.ledger.height() + 1,
+            self.ledger.tip(),
             txs,
-        }
+            &test_producer(),
+            &self.ledger.chain_id(),
+        )
     }
 
     /// Applies a block; on success every wallet scans it.
@@ -428,11 +430,13 @@ fn p3_03_restart_replay_keeps_nullifiers() {
     let replayed = Ledger::replay(n.params.clone(), &n.genesis, &n.blocks).unwrap();
     assert_eq!(replayed.state_digest(), n.ledger.state_digest());
     n.ledger = replayed;
-    let again = Block {
-        height: n.ledger.height() + 1,
-        prev: n.ledger.tip(),
-        txs: vec![second],
-    };
+    let again = Block::produce(
+        n.ledger.height() + 1,
+        n.ledger.tip(),
+        vec![second],
+        &test_producer(),
+        &n.ledger.chain_id(),
+    );
     assert_eq!(
         n.ledger.apply_block(&again),
         Err(LedgerError::NullifierAlreadySpent)
@@ -624,4 +628,42 @@ fn vectors_sizes_and_domains() {
     );
     assert_eq!(envelope::SIGHASH_DOMAIN, b"ORVEXA/shielded-sighash/v2");
     assert_eq!(envelope::TXID_DOMAIN, b"ORVEXA/shielded-txid/v2");
+}
+
+#[test]
+fn blocks_need_the_producer_signature() {
+    let mut n = net();
+    let tx = n.pay(&n.a, n.b.address, 1_000);
+    let height = n.ledger.height() + 1;
+    let chain = n.ledger.chain_id();
+    let before = n.ledger.state_digest();
+    // Signed by someone else.
+    let stranger = ed25519_dalek::SigningKey::from_bytes(&[3u8; 32]);
+    let forged = Block::produce(height, n.ledger.tip(), vec![tx.clone()], &stranger, &chain);
+    assert_eq!(
+        n.ledger.apply_block(&forged),
+        Err(LedgerError::BadProducerSignature)
+    );
+    // Right key, but the block content changed after signing.
+    let mut swapped = Block::produce(height, n.ledger.tip(), vec![], &test_producer(), &chain);
+    swapped.txs = vec![tx.clone()];
+    assert_eq!(
+        n.ledger.apply_block(&swapped),
+        Err(LedgerError::BadProducerSignature)
+    );
+    // Unsigned.
+    let mut unsigned = Block::produce(
+        height,
+        n.ledger.tip(),
+        vec![tx.clone()],
+        &test_producer(),
+        &chain,
+    );
+    unsigned.signature = [0; 64];
+    assert_eq!(
+        n.ledger.apply_block(&unsigned),
+        Err(LedgerError::BadProducerSignature)
+    );
+    assert_eq!(n.ledger.state_digest(), before);
+    n.apply(vec![tx]).unwrap();
 }

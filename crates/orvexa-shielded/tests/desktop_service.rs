@@ -368,3 +368,140 @@ async fn private_v2_inside_the_desktop_app() {
     .await;
     assert_eq!(status, 409);
 }
+
+/// One computer runs the network (producer, API reachable over HTTP); a new
+/// participant imports the network file and joins with one request.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn second_computer_joins_a_published_network() {
+    let operator_dir = tempfile::tempdir().unwrap();
+    let operator = DesktopV2::open_with(
+        operator_dir.path(),
+        TOKEN.into(),
+        Duration::from_millis(150),
+    )
+    .await
+    .unwrap();
+    let a = operator.router();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let public = format!("http://{}", listener.local_addr().unwrap());
+    let served = a.clone();
+    tokio::spawn(async move { axum::serve(listener, served).await.unwrap() });
+
+    let (alice, _) = create(&a, "Оператор").await;
+    ok(
+        &a,
+        "POST",
+        "/v2/desktop/network/create",
+        Some(json!({ "wallet": alice })),
+    )
+    .await;
+    // The operator publishes the network file with its public node address.
+    let (status, profile) = call(&a, "GET", "/v2/desktop/network/profile", None, true).await;
+    assert_eq!(status, 200);
+    let mut profile = profile;
+    profile["nodes"] = json!([public]);
+    let published = profile.to_string();
+
+    // A tampered file is refused before anything is stored.
+    let participant_dir = tempfile::tempdir().unwrap();
+    let participant = DesktopV2::open_with(
+        participant_dir.path(),
+        TOKEN.into(),
+        Duration::from_millis(150),
+    )
+    .await
+    .unwrap();
+    let b = participant.router();
+    let mut forged = profile.clone();
+    forged["producer"] = json!(hex::encode([1u8; 32]));
+    let (status, _) = call(
+        &b,
+        "POST",
+        "/v2/desktop/network/join",
+        Some(json!({ "profile": forged.to_string() })),
+        true,
+    )
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = call(
+        &b,
+        "POST",
+        "/v2/desktop/network/join",
+        Some(json!({})),
+        true,
+    )
+    .await;
+    assert_eq!(status, 400, "no built-in public network in this build");
+
+    // One request: join, follow, verify every block.
+    let joined = ok(
+        &b,
+        "POST",
+        "/v2/desktop/network/join",
+        Some(json!({ "profile": published })),
+    )
+    .await;
+    assert_eq!(joined["network"]["role"], "follower");
+    assert_eq!(joined["network"]["chain_id"], profile["chain_id"]);
+    let (bob, _) = create(&b, "Участник").await;
+    let bob_address = wallet(&b, &bob).await["address"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let sent = ok(
+        &a,
+        "POST",
+        &format!("/v2/desktop/wallets/{alice}/send"),
+        Some(json!({ "to": bob_address, "amount": "7000" })),
+    )
+    .await;
+    mined(&a, sent["txid"].as_str().unwrap()).await;
+    for _ in 0..200 {
+        if balance(&b, &bob).await == Some(7_000) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(
+        balance(&b, &bob).await,
+        Some(7_000),
+        "follower synced the payment"
+    );
+
+    // The participant's transfer is forwarded to the producer and mined.
+    let alice_address = wallet(&a, &alice).await["address"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let back = ok(
+        &b,
+        "POST",
+        &format!("/v2/desktop/wallets/{bob}/send"),
+        Some(json!({ "to": alice_address, "amount": "2000" })),
+    )
+    .await;
+    mined(&a, back["txid"].as_str().unwrap()).await;
+    for _ in 0..200 {
+        if balance(&b, &bob).await == Some(7_000 - 2_000 - 10) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(balance(&b, &bob).await, Some(4_990));
+    let state = ok(&b, "GET", "/v2/desktop/state", None).await;
+    assert_eq!(state["network"]["upstream"], public);
+    assert!(state["network"]["upstream_height"].as_u64().is_some());
+
+    // The participant never holds the producer key.
+    assert!(!participant_dir
+        .path()
+        .join("node")
+        .join("producer.key")
+        .exists());
+    assert!(operator_dir
+        .path()
+        .join("node")
+        .join("producer.key")
+        .exists());
+}

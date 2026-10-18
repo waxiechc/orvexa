@@ -4,6 +4,13 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
+/** Opens an app dropdown by its label and picks an option, like a person would. */
+async function pick(page: Page, label: string, option: string | RegExp) {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option }).click();
+}
+
+
 const root = resolve(import.meta.dirname, '../..');
 const bin = resolve(root, process.env.ORVEXA_BIN_DIR || 'target/debug');
 const extension = process.platform === 'win32' ? '.exe' : '';
@@ -109,18 +116,18 @@ test('Russian wallet, recovery, all routes and persistent language switch use th
     await page.getByLabel('Пароль резервной копии').fill(secret);
     await page.getByRole('button', { name: 'Проверить копию', exact: true }).click();
     await expect(page.locator('.verified-result')).toContainText('Копия проверена локально.');
-    await page.getByLabel('Язык', { exact: true }).selectOption('en');
+    await pick(page, 'Язык', /^EN/);
     await expect(page.locator('.verified-result')).toContainText('Backup verified locally.');
-    await page.getByLabel('Language', { exact: true }).selectOption('ru');
+    await pick(page, 'Language', /^RU/);
     await expect(page.locator('.verified-result')).toContainText('Копия проверена локально.');
     await page.goto(`${origin}/#/send`);
     await page.getByLabel('Адрес получателя').fill(command(cli, ['address', '--wallet', backup]));
     await page.getByLabel('Сумма', { exact: false }).fill('1000001');
     await page.getByRole('button', { name: 'Проверить перевод', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('превышает весь объём');
-    await page.getByLabel('Язык', { exact: true }).selectOption('en');
+    await pick(page, 'Язык', /^EN/);
     await expect(page.getByRole('alert')).toContainText('exceeds the entire test supply');
-    await page.getByLabel('Language', { exact: true }).selectOption('ru');
+    await pick(page, 'Language', /^RU/);
     await expect(page.getByRole('alert')).toContainText('превышает весь объём');
     for (const route of ['dashboard','send','receive','transactions','wallets','backup','settings','explorer','node']) {
       await page.goto(`${origin}/#/${route}`);
@@ -136,10 +143,10 @@ test('Russian wallet, recovery, all routes and persistent language switch use th
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await capture(page, 'node-russian-mobile.png');
-    await page.getByLabel('Язык', { exact: true }).selectOption('en');
+    await pick(page, 'Язык', /^EN/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en'); await expect(page.locator('main h1')).toHaveText('Node');
     await page.reload(); await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await page.getByLabel('Language', { exact: true }).selectOption('ru');
+    await pick(page, 'Language', /^RU/);
     await page.goto(`${origin}/#/wallets`); await expect(page.locator('.wallet-name strong').filter({ hasText: 'Личный кошелёк' })).toBeVisible();
     const restoredContext = await browser.newContext({ locale: 'ru-RU' });
     try {

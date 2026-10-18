@@ -33,9 +33,19 @@ const EXPLORER: &str = include_str!("explorer.html");
 /// Largest request body: one maximal envelope in hex plus JSON framing.
 const MAX_BODY: usize = 2 * 64 * 1024 + 1024;
 
+/// The producer's Ed25519 signing key. `Debug` never prints it.
+#[derive(Clone)]
+pub struct ProducerKey(pub Arc<ed25519_dalek::SigningKey>);
+
+impl std::fmt::Debug for ProducerKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ProducerKey(..)")
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Role {
-    Producer { every: Duration },
+    Producer { every: Duration, key: ProducerKey },
     Follower { upstream: String, poll: Duration },
 }
 
@@ -59,6 +69,8 @@ struct Node {
     store: Store,
     mempool: Vec<Pending>,
     mempool_nullifiers: HashSet<[u8; 32]>,
+    /// Latest height the followed producer reported (followers only).
+    upstream_height: Option<u64>,
 }
 
 type Shared = Arc<Mutex<Node>>;
@@ -95,6 +107,7 @@ pub async fn embed(config: NodeConfig) -> Result<(Router, NodeHandle), String> {
         store,
         mempool: Vec::new(),
         mempool_nullifiers: HashSet::new(),
+        upstream_height: None,
     }));
     let state = AppState {
         node: node.clone(),
@@ -103,7 +116,19 @@ pub async fn embed(config: NodeConfig) -> Result<(Router, NodeHandle), String> {
     };
 
     let task = match config.role.clone() {
-        Role::Producer { every } => tokio::spawn(produce_loop(node.clone(), every)),
+        Role::Producer { every, key } => {
+            let expected = node
+                .lock()
+                .expect("node lock")
+                .store
+                .ledger()
+                .params()
+                .producer;
+            if key.0.verifying_key().to_bytes() != expected {
+                return Err("this producer key does not belong to the network".into());
+            }
+            tokio::spawn(produce_loop(node.clone(), every, key))
+        }
         Role::Follower { upstream, poll } => tokio::spawn(follow_loop(
             node.clone(),
             state.http.clone(),
@@ -128,6 +153,8 @@ pub async fn embed(config: NodeConfig) -> Result<(Router, NodeHandle), String> {
         NodeHandle {
             node,
             task: Arc::new(task),
+            role: config.role,
+            http: reqwest::Client::new(),
         },
     ))
 }
@@ -157,6 +184,8 @@ pub struct Rejection {
 pub struct NodeHandle {
     node: Shared,
     task: Arc<tokio::task::JoinHandle<()>>,
+    role: Role,
+    http: reqwest::Client,
 }
 
 impl NodeHandle {
@@ -208,7 +237,66 @@ impl NodeHandle {
     }
 
     /// Validates and queues a transaction for the next block.
+    /// `"producer"` or `"follower"`.
+    pub fn role(&self) -> &'static str {
+        match self.role {
+            Role::Producer { .. } => "producer",
+            Role::Follower { .. } => "follower",
+        }
+    }
+
+    /// The node a follower syncs from.
+    pub fn upstream(&self) -> Option<&str> {
+        match &self.role {
+            Role::Follower { upstream, .. } => Some(upstream),
+            Role::Producer { .. } => None,
+        }
+    }
+
+    /// Height last reported by the followed producer.
+    pub fn upstream_height(&self) -> Option<u64> {
+        self.node.lock().expect("node lock").upstream_height
+    }
+
     pub async fn submit(&self, env: &Envelope) -> Result<[u8; 32], Rejection> {
+        if let Role::Follower { upstream, .. } = &self.role {
+            // Followers do not seal blocks; the producer must see the transfer.
+            let request = SubmitRequest {
+                tx: hex::encode(env.encode()),
+            };
+            let response = self
+                .http
+                .post(format!("{upstream}/v2/tx"))
+                .json(&request)
+                .timeout(Duration::from_secs(30))
+                .send()
+                .await
+                .map_err(|_| Rejection {
+                    status: 502,
+                    code: "upstream".into(),
+                })?;
+            let status = response.status().as_u16();
+            if !response.status().is_success() {
+                let code = response
+                    .json::<ErrorView>()
+                    .await
+                    .map(|e| e.code)
+                    .unwrap_or_else(|_| "upstream".into());
+                return Err(Rejection { status, code });
+            }
+            let body: SubmitResponse = response.json().await.map_err(|_| Rejection {
+                status: 502,
+                code: "upstream".into(),
+            })?;
+            return if body.txid == hex::encode(env.txid()) {
+                Ok(env.txid())
+            } else {
+                Err(Rejection {
+                    status: 502,
+                    code: "upstream".into(),
+                })
+            };
+        }
         let node = self.node.clone();
         let bytes = env.encode();
         tokio::task::spawn_blocking(move || accept(&node, bytes))
@@ -251,14 +339,9 @@ fn accept(node: &Shared, bytes: Vec<u8>) -> Result<[u8; 32], Rejection> {
             code: "MempoolConflict".into(),
         });
     }
-    let probe = Block {
-        height: n.store.ledger().height() + 1,
-        prev: n.store.ledger().tip(),
-        txs: vec![bytes.clone()],
-    };
     n.store
         .ledger()
-        .validate_block(&probe, ProofCheck::Verify)
+        .check_candidates(std::slice::from_ref(&bytes), ProofCheck::Verify)
         .map_err(|e| reject(&e))?;
     n.mempool_nullifiers.extend(nullifiers.iter().copied());
     n.mempool.push(Pending {
@@ -272,16 +355,17 @@ fn accept(node: &Shared, bytes: Vec<u8>) -> Result<[u8; 32], Rejection> {
 
 // ------------------------------------------------------------ roles ----
 
-async fn produce_loop(node: Shared, every: Duration) {
+async fn produce_loop(node: Shared, every: Duration, key: ProducerKey) {
     let mut tick = tokio::time::interval(every);
     loop {
         tick.tick().await;
         let node = node.clone();
-        let _ = tokio::task::spawn_blocking(move || produce_once(&node)).await;
+        let key = key.clone();
+        let _ = tokio::task::spawn_blocking(move || produce_once(&node, &key)).await;
     }
 }
 
-fn produce_once(node: &Shared) {
+fn produce_once(node: &Shared, key: &ProducerKey) {
     let mut n = node.lock().expect("node lock");
     if n.mempool.is_empty() {
         return;
@@ -298,14 +382,9 @@ fn produce_once(node: &Shared) {
         if p.nullifiers.iter().any(|nf| seen.contains(nf)) {
             continue;
         }
-        let probe = Block {
-            height,
-            prev,
-            txs: vec![p.bytes.clone()],
-        };
         if n.store
             .ledger()
-            .validate_block(&probe, ProofCheck::Skip)
+            .check_candidates(std::slice::from_ref(&p.bytes), ProofCheck::Skip)
             .is_ok()
         {
             seen.extend(p.nullifiers.iter().copied());
@@ -317,11 +396,9 @@ fn produce_once(node: &Shared) {
     if chosen.is_empty() {
         return;
     }
-    let block = Block {
-        height,
-        prev,
-        txs: chosen.iter().map(|p| p.bytes.clone()).collect(),
-    };
+    let chain_id = n.store.ledger().chain_id();
+    let txs = chosen.iter().map(|p| p.bytes.clone()).collect();
+    let block = Block::produce(height, prev, txs, &key.0, &chain_id);
     match n.store.apply_block(&block) {
         Ok(id) => eprintln!(
             "ORVEXA v2 produced block {height} {} with {} tx",
@@ -339,7 +416,11 @@ async fn follow_loop(node: Shared, http: reqwest::Client, upstream: String, poll
         let Ok(status) = fetch::<StatusView>(&http, &format!("{upstream}/v2/status")).await else {
             continue;
         };
-        let ours = node.lock().expect("node lock").store.ledger().chain_id();
+        let ours = {
+            let mut n = node.lock().expect("node lock");
+            n.upstream_height = Some(status.height);
+            n.store.ledger().chain_id()
+        };
         if status.chain_id != hex::encode(ours) {
             eprintln!("ORVEXA v2 upstream is a different chain; not following");
             continue;
@@ -439,6 +520,7 @@ fn block_at(n: &Node, height: u64) -> Result<Option<Block>, StoreError> {
         return Ok(Some(Block {
             height: 0,
             prev: [0; 32],
+            signature: [0; 64],
             txs: vec![n.store.genesis_tx()?],
         }));
     }

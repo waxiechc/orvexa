@@ -4,6 +4,13 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
+/** Opens an app dropdown by its label and picks an option, like a person would. */
+async function pick(page: Page, label: string, option: string | RegExp) {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option }).click();
+}
+
+
 const root = resolve(import.meta.dirname, '../..');
 const extension = process.platform === 'win32' ? '.exe' : '';
 const binaryDir = process.env.ORVEXA_BIN_DIR || 'target/debug';
@@ -94,7 +101,7 @@ test('native backups, browser signing, two-way transfers, Explorer and restart',
   await expect(page.getByText('Node connected', { exact: true })).toBeVisible();
   await restore(page, 'Wallet A', resolve(directory, 'a.wallet.json'));
   await restore(page, 'Wallet B', resolve(directory, 'b.wallet.json'));
-  await page.getByLabel('Active wallet').selectOption({ label: 'Wallet A' });
+  await pick(page, 'Active wallet', /^Wallet A/);
   await page.goto(`${origin}/#/dashboard`);
   await expect(page.getByTestId('confirmed-balance')).toContainText('1,000,000');
   const first = await send(page, addressB, '250', '2');
@@ -104,7 +111,7 @@ test('native backups, browser signing, two-way transfers, Explorer and restart',
   await produce(page);
   await expect(page.locator('.detail-panel .badge')).toHaveText(/Confirmed/);
   await expect(page.locator('.detail-grid > div').filter({ hasText: 'Confirmations' })).toContainText('1');
-  await page.getByLabel('Active wallet').selectOption({ label: 'Wallet B' });
+  await pick(page, 'Active wallet', /^Wallet B/);
   await page.goto(`${origin}/#/dashboard`);
   await expect(page.getByTestId('confirmed-balance')).toContainText('250');
   const second = await send(page, addressA, '40', '1');
@@ -132,7 +139,7 @@ test('native backups, browser signing, two-way transfers, Explorer and restart',
   const state = await (await fetch(`${origin}/v1/status`)).json();
   const a = await (await fetch(`${origin}/v1/balance/${addressA}`)).json();
   expect(state.height).toBe(2); expect(state.burned_fees).toBe(3); expect(a.confirmed.balance).toBe(999788);
-  await page.getByLabel('Active wallet').selectOption({ label: 'Wallet A' });
+  await pick(page, 'Active wallet', /^Wallet A/);
   await expect(page.getByTestId('confirmed-balance')).toContainText('999,788');
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.locator('.drawer-close')).toBeHidden();

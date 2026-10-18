@@ -29,6 +29,8 @@ wasm-bindgen --target web --out-dir web/public/wasm --out-name orvexa_web_wallet
 (cd web && npm run build)
 export ORVEXA_DESKTOP_WEB_DIR="$PWD/web/dist"
 export MACOSX_DEPLOYMENT_TARGET=14.0
+# Compiled into the app: the self-updater compares it with the signed manifest.
+export ORVEXA_RELEASE="$version"
 binaries=()
 for target in "${targets[@]}"; do
   cargo build --release --locked --target "$target" -p orvexa-desktop

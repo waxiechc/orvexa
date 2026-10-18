@@ -6,6 +6,7 @@
 
 use crate::envelope::{self, Envelope, EnvelopeError, SUITE_IRONWOOD_V3, VERSION};
 use crate::keys;
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use incrementalmerkletree::{frontier::Frontier, Hashable, Level, Position, Retention};
 use orchard::{
     bundle::{Authorization, BatchValidator, Flags, TxVersion},
@@ -19,6 +20,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub const CHAIN_ID_DOMAIN: &[u8] = b"ORVEXA/chain-id/v2";
 pub const BLOCK_DOMAIN: &[u8] = b"ORVEXA/shielded-block/v2";
 pub const STATE_DOMAIN: &[u8] = b"ORVEXA/shielded-state/v2";
+pub const BLOCK_SIG_DOMAIN: &[u8] = b"ORVEXA/shielded-block-sig/v2";
 
 /// Network parameters fixed in the network config before genesis.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -30,23 +32,34 @@ pub struct Params {
     pub anchor_window: u32,
     /// `expiry_height` may be at most this far above the including block.
     pub max_expiry_delta: u64,
+    /// Ed25519 key of the block producer; every block after genesis is signed by it.
+    pub producer: [u8; 32],
 }
 
 impl Params {
+    /// Test parameters signed by [`test_producer`]. Never for a shared network.
     pub fn test(supply: u64) -> Self {
         Params {
             salt: [7; 32],
             supply,
             anchor_window: 100,
             max_expiry_delta: 1_000,
+            producer: test_producer().verifying_key().to_bytes(),
         }
     }
+}
+
+/// Fixed, publicly known producer key for tests only.
+pub fn test_producer() -> SigningKey {
+    SigningKey::from_bytes(&[9u8; 32])
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub height: u64,
     pub prev: [u8; 32],
+    /// Producer signature over the block ID; all zero for genesis.
+    pub signature: [u8; 64],
     pub txs: Vec<Vec<u8>>,
 }
 
@@ -67,6 +80,8 @@ pub enum LedgerError {
     FeeExceedsRemainingSupply,
     /// A proof, spend-auth or binding signature in the block failed.
     Authorization,
+    /// The block is not signed by this network's producer.
+    BadProducerSignature,
     TreeFull,
     Genesis(&'static str),
 }
@@ -78,11 +93,32 @@ impl From<EnvelopeError> for LedgerError {
 }
 
 impl Block {
-    /// height u64 · prev 32 · tx count u32 · (length u32 · envelope)…
+    /// A block signed by the producer for the given chain.
+    pub fn produce(
+        height: u64,
+        prev: [u8; 32],
+        txs: Vec<Vec<u8>>,
+        key: &SigningKey,
+        chain_id: &[u8; 32],
+    ) -> Self {
+        let mut block = Block {
+            height,
+            prev,
+            signature: [0; 64],
+            txs,
+        };
+        block.signature = key
+            .sign(&signing_message(&block_id(chain_id, &block)))
+            .to_bytes();
+        block
+    }
+
+    /// height u64 · prev 32 · signature 64 · tx count u32 · (length u32 · envelope)…
     pub fn encode(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&self.height.to_le_bytes());
         out.extend_from_slice(&self.prev);
+        out.extend_from_slice(&self.signature);
         out.extend_from_slice(&(self.txs.len() as u32).to_le_bytes());
         for tx in &self.txs {
             out.extend_from_slice(&(tx.len() as u32).to_le_bytes());
@@ -103,13 +139,19 @@ impl Block {
         let mut b = bytes;
         let height = u64::from_le_bytes(take(&mut b, 8)?.try_into().ok()?);
         let prev = take(&mut b, 32)?.try_into().ok()?;
+        let signature = take(&mut b, 64)?.try_into().ok()?;
         let count = u32::from_le_bytes(take(&mut b, 4)?.try_into().ok()?) as usize;
         let mut txs = Vec::with_capacity(count.min(1024));
         for _ in 0..count {
             let len = u32::from_le_bytes(take(&mut b, 4)?.try_into().ok()?) as usize;
             txs.push(take(&mut b, len)?);
         }
-        b.is_empty().then_some(Block { height, prev, txs })
+        b.is_empty().then_some(Block {
+            height,
+            prev,
+            signature,
+            txs,
+        })
     }
 }
 
@@ -132,11 +174,17 @@ pub fn chain_id<A: Authorization>(params: &Params, genesis: &Bundle<A, i64>) -> 
     h.update(params.supply.to_le_bytes());
     h.update(params.anchor_window.to_le_bytes());
     h.update(params.max_expiry_delta.to_le_bytes());
+    h.update(params.producer);
     h.update(genesis.anchor().to_bytes());
     h.update(effects);
     h.finalize().into()
 }
 
+fn signing_message(id: &[u8; 32]) -> Vec<u8> {
+    [BLOCK_SIG_DOMAIN, id.as_slice()].concat()
+}
+
+/// Block ID: commits to height, parent and every txid, not to the signature.
 pub fn block_id(chain_id: &[u8; 32], block: &Block) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(BLOCK_DOMAIN);
@@ -233,6 +281,7 @@ impl Ledger {
         let genesis = Block {
             height: 0,
             prev: [0; 32],
+            signature: [0; 64],
             txs: vec![genesis_tx.to_vec()],
         };
         let tip = block_id(&env.chain_id, &genesis);
@@ -299,12 +348,50 @@ impl Ledger {
         if block.prev != self.tip {
             return Err(LedgerError::WrongParent);
         }
+        let id = block_id(&self.chain_id, block);
+        let producer = VerifyingKey::from_bytes(&self.params.producer)
+            .map_err(|_| LedgerError::BadProducerSignature)?;
+        producer
+            .verify_strict(
+                &signing_message(&id),
+                &Signature::from_bytes(&block.signature),
+            )
+            .map_err(|_| LedgerError::BadProducerSignature)?;
+        let (envs, fees) = self.validate_body(block.height, &block.txs, proofs)?;
+        let mut frontier = self.frontier.clone();
+        for env in &envs {
+            for action in env.bundle.actions() {
+                frontier.append(MerkleHashOrchard::from_cmx(action.cmx()));
+            }
+        }
+        Ok(Validated {
+            height: block.height,
+            id,
+            block: block.clone(),
+            envs,
+            fees,
+            root: frontier.root().to_bytes(),
+        })
+    }
+
+    /// Checks transactions as if they formed the next block, without a
+    /// producer signature (mempool admission and block assembly).
+    pub fn check_candidates(&self, txs: &[Vec<u8>], proofs: ProofCheck) -> Result<(), LedgerError> {
+        self.validate_body(self.height + 1, txs, proofs).map(|_| ())
+    }
+
+    fn validate_body(
+        &self,
+        height: u64,
+        txs: &[Vec<u8>],
+        proofs: ProofCheck,
+    ) -> Result<(Vec<Envelope>, u64), LedgerError> {
         let mut seen = HashSet::new();
         let mut fees: u64 = 0;
-        let mut envs = Vec::with_capacity(block.txs.len());
-        for tx in &block.txs {
+        let mut envs = Vec::with_capacity(txs.len());
+        for tx in txs {
             let env = Envelope::decode(tx)?;
-            self.check_ordinary(&env, block.height)?;
+            self.check_ordinary(&env, height)?;
             for nf in env.nullifiers() {
                 if self.nullifiers.contains(&nf) {
                     return Err(LedgerError::NullifierAlreadySpent);
@@ -322,7 +409,7 @@ impl Ledger {
             return Err(LedgerError::FeeExceedsRemainingSupply);
         }
         let new_leaves: u64 = envs.iter().map(|e| e.bundle.actions().len() as u64).sum();
-        if self.leaves + new_leaves > 1u64 << 32 || u32::try_from(block.height).is_err() {
+        if self.leaves + new_leaves > 1u64 << 32 || u32::try_from(height).is_err() {
             return Err(LedgerError::TreeFull);
         }
         // Most expensive check last, once per block.
@@ -332,20 +419,7 @@ impl Ledger {
                 return Err(LedgerError::Authorization);
             }
         }
-        let mut frontier = self.frontier.clone();
-        for env in &envs {
-            for action in env.bundle.actions() {
-                frontier.append(MerkleHashOrchard::from_cmx(action.cmx()));
-            }
-        }
-        Ok(Validated {
-            height: block.height,
-            id: block_id(&self.chain_id, block),
-            block: block.clone(),
-            envs,
-            fees,
-            root: frontier.root().to_bytes(),
-        })
+        Ok((envs, fees))
     }
 
     fn check_ordinary(&self, env: &Envelope, height: u64) -> Result<(), LedgerError> {
