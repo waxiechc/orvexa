@@ -49,8 +49,16 @@ Limits: no live public seeds/common public network, Internet deployment test,
 permissionless consensus, automatic authority failover, rewards, seed recovery,
 private ledger, independent audit, installer/code signing, tray, or OS-login
 autostart is claimed. Closing the preview stops its embedded node. Linux GUI
-is not implemented; Linux headless build is covered separately by GitHub CI.
+is not implemented. The GitHub CI workflow includes Linux and Windows jobs,
+but GitHub did not start them: its check annotation reports that the owner's
+account is locked due to a billing issue. No remote CI pass is claimed.
 The E1–E8 implementation plan is in [PLATFORM_PLAN.md](PLATFORM_PLAN.md).
+
+Published source: [waxiechc/orvexa](https://github.com/waxiechc/orvexa).
+Download site: [ORVEXA](https://waxiechc.github.io/orvexa/) (HTTP 200 verified).
+Release assets were downloaded again from public GitHub URLs; EXE and ZIP
+SHA-256 match the local tested artifacts. GitHub Pages deployment is independent
+of the unavailable project CI runners.
 
 The older testnet artifacts below remain historical, separate deliverables.
 

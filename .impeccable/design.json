@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-17T20:42:11Z",
-  "title": "Design System: ORVEXA Wallet & Explorer",
+  "generatedAt": "2026-10-18T10:01:09Z",
+  "title": "Design System: ORVEXA Wallet, Explorer & Node",
   "extensions": {
     "colorMeta": {
       "obsidian": {
@@ -141,6 +141,22 @@
       "mono": {
         "displayName": "Hash and address",
         "purpose": "Exact identifiers, wrapping in detail views."
+      },
+      "site-headline": {
+        "displayName": "Release headline",
+        "purpose": "Download-site opening statement; distinct from the wallet balance role."
+      },
+      "site-title": {
+        "displayName": "Release section title",
+        "purpose": "Setup, capabilities, direction and downloads."
+      },
+      "site-body": {
+        "displayName": "Release body",
+        "purpose": "More open reading rhythm on the public download surface."
+      },
+      "site-button": {
+        "displayName": "Download action",
+        "purpose": "Windows preview download with a larger hit area."
       }
     },
     "shadows": [
@@ -148,6 +164,11 @@
         "name": "dialog",
         "value": "0 28px 90px rgba(0,0,0,0.5)",
         "purpose": "Modal dialog only. Resting cards and controls have no shadow."
+      },
+      {
+        "name": "app-capture",
+        "value": "0 28px 70px #0005",
+        "purpose": "The release site's real native-app capture only."
       }
     ],
     "gradients": [
@@ -160,6 +181,11 @@
         "name": "balance",
         "value": "linear-gradient(115deg, #152232 0%, #1c3046 100%)",
         "purpose": "Dashboard balance anchor, without glow."
+      },
+      {
+        "name": "release-page",
+        "value": "linear-gradient(135deg, #050608 10%, #101a27 65%, #0b111a)",
+        "purpose": "Release journal background using the established palette."
       }
     ],
     "motion": [
@@ -187,6 +213,11 @@
         "name": "reduced-motion",
         "value": "animation: none !important; transition: none !important; scroll-behavior: auto !important",
         "purpose": "Applied to all elements and pseudo-elements when reduced motion is requested."
+      },
+      {
+        "name": "release-links",
+        "value": "background-color 160ms ease-out; color 160ms ease-out",
+        "purpose": "Download link hover; site reduces motion and disables smooth scrolling when requested."
       }
     ],
     "breakpoints": [
@@ -209,6 +240,14 @@
       {
         "name": "desktop-balance-motion-min",
         "value": "1100px"
+      },
+      {
+        "name": "release-compact-desktop-max",
+        "value": "1100px"
+      },
+      {
+        "name": "release-small-mobile-max",
+        "value": "390px"
       }
     ]
   },
@@ -276,16 +315,33 @@
       "description": "Quiet network facts; em dashes represent data not yet read.",
       "html": "<section class=\"ds-network\"><div class=\"ds-panel-heading\"><h2>Connected network</h2><span class=\"ds-connection-dot\"></span></div><div class=\"ds-network-name\">ORVEXA <span>Local devnet</span></div><p class=\"ds-node-origin\">Waiting for node</p><dl class=\"ds-network-facts\"><div><dt>Block height</dt><dd>—</dd></div><div><dt>Pending transfers</dt><dd>—</dd></div><div><dt>Burned fees</dt><dd>—</dd></div></dl></section>",
       "css": ".ds-network{border:1px solid var(--borders);border-radius:10px;padding:25px 25px 18px;background:rgba(16,26,39,.42);color:var(--ice-white);font-family:var(--font-ui)}.ds-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:23px}.ds-panel-heading h2{margin:0;font-size:14px;font-weight:550;line-height:1.25;letter-spacing:-.015em}.ds-connection-dot{height:6px;width:6px;background:#526071;border-radius:50%}.ds-network-name{font-size:18px;font-weight:500;letter-spacing:-.02em}.ds-network-name>span{margin-left:7px;font-size:10px;padding:3px 6px;border:1px solid #34485f;border-radius:4px;color:#b8cadf;font-weight:400;vertical-align:2px;letter-spacing:0}.ds-node-origin{font-size:10px;color:var(--secondary-text);margin:8px 0 22px}.ds-network-facts{display:grid;gap:13px;margin:0 0 20px}.ds-network-facts>div{display:flex;justify-content:space-between;gap:10px}.ds-network-facts dt{font-size:11px;color:var(--secondary-text)}.ds-network-facts dd{margin:0;font-size:11px;color:#d2e1f2;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Node operation panel",
+      "kind": "custom",
+      "refersTo": "node-operation",
+      "description": "Unknown-state example: live facts remain em dashes until a successful observation.",
+      "html": "<section class=\"ds-node\"><div class=\"ds-node-heading\"><div class=\"ds-node-mark\"><svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/><rect x=\"9\" y=\"9\" width=\"6\" height=\"6\"/><path d=\"M9 2v2m6-2v2M9 20v2m6-2v2M2 9h2m-2 6h2m16-6h2m-2 6h2\"/></svg></div><div><h2>Checking node controls</h2><p>Reading the local application status.</p></div><span class=\"ds-node-role\">Verifying full node</span></div><div class=\"ds-node-facts\"><div><span>Accepted height</span><strong>—</strong></div><div><span>Connected peers</span><strong>—</strong></div><div><span>Transport</span><strong>—</strong></div></div></section>",
+      "css": ".ds-node{border:1px solid var(--borders);border-radius:10px;padding:28px;background:rgba(16,26,39,.42);color:var(--ice-white);font-family:var(--font-ui)}.ds-node-heading{display:flex;align-items:center;gap:18px;margin-bottom:28px}.ds-node-heading h2{margin:0;font-size:23px;font-weight:550;line-height:1.25;letter-spacing:-.015em}.ds-node-heading p{margin:5px 0 0;font-size:13px;color:var(--secondary-text);line-height:1.5}.ds-node-mark{width:58px;height:58px;border:1px solid var(--steel-blue);border-radius:10px;display:grid;place-items:center;color:var(--secondary-text);flex-shrink:0}.ds-node-role{margin-left:auto;color:var(--ice-white);font-size:11px;border:1px solid var(--borders);border-radius:4px;padding:5px 9px}.ds-node-facts{display:flex;flex-wrap:wrap;gap:40px;padding:0 0 28px}.ds-node-facts>div{display:grid;gap:7px}.ds-node-facts span{color:var(--secondary-text);font-size:12px}.ds-node-facts strong{font-size:23px;font-weight:450;font-variant-numeric:tabular-nums}@media(max-width:760px){.ds-node{padding:20px}.ds-node-heading{flex-wrap:wrap;gap:12px}.ds-node-heading h2{font-size:20px}.ds-node-mark{width:45px;height:45px}.ds-node-role{margin-left:0}.ds-node-facts{gap:22px}}"
+    },
+    {
+      "name": "Windows download action",
+      "kind": "button",
+      "refersTo": "site-download-button",
+      "description": "Release-site link to the preview asset; hover and keyboard focus retain the established palette.",
+      "html": "<a class=\"ds-download\" href=\"https://github.com/waxiechc/orvexa/releases/download/v0.1.0-desktop-preview.1/ORVEXA.exe\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"M12 3v12m-5-5 5 5 5-5M4 15v6h16v-6\"/></svg>Download for Windows</a>",
+      "css": ".ds-download{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:13px 19px;min-height:49px;border-radius:6px;font-family:var(--font,var(--font-ui));font-size:13px;font-weight:600;line-height:1.65;background:var(--ice,var(--ice-white));color:var(--navy,var(--midnight-navy));text-decoration:none;transition:background-color .16s ease-out}.ds-download:hover{background:white}.ds-download:focus-visible{outline:2px solid var(--ice,var(--ice-white));outline-offset:5px}@media(max-width:390px){.ds-download{font-size:12px;padding-left:15px;padding-right:15px}}@media(prefers-reduced-motion:reduce){.ds-download{transition:none}}"
     }
   ],
   "narrative": {
     "northStar": "ORVEXA local wallet workspace",
-    "overview": "An English operating interface for local testers creating wallets, transferring\ntest atoms and inspecting real node state. The confirmed brief is premium,\nrestrained, technological and minimal: a cold navy field, clear system type,\ngeometric identity, thin borders and space around important actions.\n\nThe approved eye/flower symbol and ORVEXA wordmark anchor every route. Current\nSVGs in `web/public/brand/` are path-based reconstructions traced from\n`ORVEXA.png`; they contain no embedded bitmap and are not an original vector\nmaster. Preserve these geometries and proportions when extending the interface.",
+    "overview": "An English operating interface for testers creating wallets, transferring\ntest atoms and running verifying nodes. A release-download site introduces the\nworking desktop preview and its current network boundaries. The confirmed brief is premium,\nrestrained, technological and minimal: a cold navy field, clear system type,\ngeometric identity, thin borders and space around important actions.\n\nThe approved eye/flower symbol and ORVEXA wordmark anchor every route. Current\nSVGs in `web/public/brand/` are path-based reconstructions traced from\n`ORVEXA.png`; they contain no embedded bitmap and are not an original vector\nmaster. Preserve these geometries and proportions when extending the interface.",
     "keyCharacteristics": [
       "Obsidian-to-navy background with Ice White actions and identity.",
       "Open transaction rows, exact integers and compact network facts.",
       "Visible connection, pending, confirmed, unavailable and empty states.",
-      "One visual language across Wallet, dialogs and Explorer."
+      "One visual language across Wallet, Explorer, Node controls and release downloads.",
+      "Actual application captures and explicit preview/planned labels on the site."
     ],
     "rules": [
       {
@@ -305,7 +361,9 @@
       "**Do** keep Transparent v1, public addresses and amounts explicit.",
       "**Do** distinguish pending submission, block inclusion and last known state.",
       "**Do** retain keyboard focus, mobile drawer behavior and reduced-motion support.",
-      "**Do** show encrypted-file backup and restore; v1 has no seed phrase."
+      "**Do** show encrypted-file backup and restore; v1 has no seed phrase.",
+      "**Do** distinguish a verifying full node from block authority and reward roles.",
+      "**Do** pair release downloads with actual app evidence and current preview limits."
     ],
     "donts": [
       "**Don't** replace the approved logo with another eye, star or emblem.",
@@ -313,7 +371,8 @@
       "**Don't** describe v1 transfers as private, anonymous or ready for real funds.",
       "**Don't** display passwords, private keys or invented recovery phrases in UI examples.",
       "**Don't** imply automatic mining, a faucet or decentralized finality.",
-      "**Don't** use promotional graphics or illustrative data as real ledger state."
+      "**Don't** use promotional graphics or illustrative data as real ledger state.",
+      "**Don't** present stale node observations as live or a preview as a public network."
     ]
   }
 }
