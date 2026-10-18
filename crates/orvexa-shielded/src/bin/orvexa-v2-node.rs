@@ -15,7 +15,9 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 fn usage() -> ! {
-    eprintln!("usage: orvexa-v2-node genesis --to <address-hex> --out FILE [--salt HEX] [--supply N]");
+    eprintln!(
+        "usage: orvexa-v2-node genesis --to <address-hex> --out FILE [--salt HEX] [--supply N]"
+    );
     eprintln!("       orvexa-v2-node run --data-dir DIR [--genesis FILE] [--listen ADDR] (--produce-every-ms N | --follow URL [--poll-ms N])");
     std::process::exit(2)
 }
@@ -24,7 +26,9 @@ fn flags(args: &[String]) -> HashMap<String, String> {
     let mut map = HashMap::new();
     let mut it = args.iter();
     while let Some(key) = it.next() {
-        let Some(name) = key.strip_prefix("--") else { usage() };
+        let Some(name) = key.strip_prefix("--") else {
+            usage()
+        };
         let Some(value) = it.next() else { usage() };
         map.insert(name.to_owned(), value.clone());
     }
@@ -34,7 +38,10 @@ fn flags(args: &[String]) -> HashMap<String, String> {
 fn params(f: &HashMap<String, String>) -> Params {
     let mut p = Params::test(1_000_000);
     if let Some(salt) = f.get("salt") {
-        p.salt = hex::decode(salt).ok().and_then(|v| v.try_into().ok()).unwrap_or_else(|| usage());
+        p.salt = hex::decode(salt)
+            .ok()
+            .and_then(|v| v.try_into().ok())
+            .unwrap_or_else(|| usage());
     }
     if let Some(supply) = f.get("supply") {
         p.supply = supply.parse().unwrap_or_else(|_| usage());
@@ -49,27 +56,44 @@ async fn main() {
     let f = flags(&args[1..]);
     match command.as_str() {
         "genesis" => {
-            let to: [u8; 43] = f.get("to").and_then(|h| hex::decode(h).ok()).and_then(|v| v.try_into().ok()).unwrap_or_else(|| usage());
-            let address = Option::from(orchard::Address::from_raw_address_bytes(&to)).unwrap_or_else(|| usage());
+            let to: [u8; 43] = f
+                .get("to")
+                .and_then(|h| hex::decode(h).ok())
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or_else(|| usage());
+            let address = Option::from(orchard::Address::from_raw_address_bytes(&to))
+                .unwrap_or_else(|| usage());
             let p = params(&f);
             let genesis = build_genesis(&p, &[(address, p.supply)]);
-            std::fs::write(f.get("out").unwrap_or_else(|| usage()), &genesis).expect("write genesis");
+            std::fs::write(f.get("out").unwrap_or_else(|| usage()), &genesis)
+                .expect("write genesis");
             println!("genesis written, {} bytes", genesis.len());
         }
         "run" => {
             let role = match (f.get("produce-every-ms"), f.get("follow")) {
-                (Some(ms), None) => Role::Producer { every: Duration::from_millis(ms.parse().unwrap_or_else(|_| usage())) },
+                (Some(ms), None) => Role::Producer {
+                    every: Duration::from_millis(ms.parse().unwrap_or_else(|_| usage())),
+                },
                 (None, Some(url)) => Role::Follower {
                     upstream: url.trim_end_matches('/').to_owned(),
-                    poll: Duration::from_millis(f.get("poll-ms").map_or(500, |v| v.parse().unwrap_or_else(|_| usage()))),
+                    poll: Duration::from_millis(
+                        f.get("poll-ms")
+                            .map_or(500, |v| v.parse().unwrap_or_else(|_| usage())),
+                    ),
                 },
                 _ => usage(),
             };
             let config = NodeConfig {
                 data_dir: f.get("data-dir").unwrap_or_else(|| usage()).into(),
-                genesis: f.get("genesis").map(|path| std::fs::read(path).expect("read genesis")),
+                genesis: f
+                    .get("genesis")
+                    .map(|path| std::fs::read(path).expect("read genesis")),
                 params: params(&f),
-                listen: f.get("listen").map_or("127.0.0.1:4260", String::as_str).parse().unwrap_or_else(|_| usage()),
+                listen: f
+                    .get("listen")
+                    .map_or("127.0.0.1:4260", String::as_str)
+                    .parse()
+                    .unwrap_or_else(|_| usage()),
                 role,
             };
             if let Err(e) = run(config).await {

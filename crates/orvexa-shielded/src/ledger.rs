@@ -34,7 +34,12 @@ pub struct Params {
 
 impl Params {
     pub fn test(supply: u64) -> Self {
-        Params { salt: [7; 32], supply, anchor_window: 100, max_expiry_delta: 1_000 }
+        Params {
+            salt: [7; 32],
+            supply,
+            anchor_window: 100,
+            max_expiry_delta: 1_000,
+        }
     }
 }
 
@@ -116,7 +121,10 @@ pub fn empty_anchor() -> Anchor {
 /// (outputs, flags, value balance). Effects do not depend on signatures, so
 /// the genesis bundle can then be signed under this chain ID without a cycle.
 pub fn chain_id<A: Authorization>(params: &Params, genesis: &Bundle<A, i64>) -> [u8; 32] {
-    let effects: [u8; 32] = genesis.commitment(TxVersion::V6).expect("v6 commitment").into();
+    let effects: [u8; 32] = genesis
+        .commitment(TxVersion::V6)
+        .expect("v6 commitment")
+        .into();
     let mut h = Sha256::new();
     h.update(CHAIN_ID_DOMAIN);
     h.update([VERSION, SUITE_IRONWOOD_V3]);
@@ -170,7 +178,9 @@ impl Validated {
         self.envs.iter().flat_map(|e| e.nullifiers())
     }
     pub fn commitments(&self) -> impl Iterator<Item = [u8; 32]> + '_ {
-        self.envs.iter().flat_map(|e| e.bundle.actions().iter().map(|a| a.cmx().to_bytes()))
+        self.envs
+            .iter()
+            .flat_map(|e| e.bundle.actions().iter().map(|a| a.cmx().to_bytes()))
     }
 }
 
@@ -194,7 +204,8 @@ impl Ledger {
     pub fn from_genesis(params: Params, genesis_tx: &[u8]) -> Result<Self, LedgerError> {
         let env = Envelope::decode(genesis_tx)?;
         let b = &env.bundle;
-        let supply = i64::try_from(params.supply).map_err(|_| LedgerError::Genesis("supply above i64"))?;
+        let supply =
+            i64::try_from(params.supply).map_err(|_| LedgerError::Genesis("supply above i64"))?;
         if *b.flags() != Flags::SPENDS_DISABLED {
             return Err(LedgerError::Genesis("genesis must have spends disabled"));
         }
@@ -202,10 +213,14 @@ impl Ledger {
             return Err(LedgerError::Genesis("genesis has no fee and no expiry"));
         }
         if *b.value_balance() != -supply {
-            return Err(LedgerError::Genesis("genesis must mint exactly the configured supply"));
+            return Err(LedgerError::Genesis(
+                "genesis must mint exactly the configured supply",
+            ));
         }
         if b.anchor().to_bytes() != empty_anchor().to_bytes() {
-            return Err(LedgerError::Genesis("genesis anchor must be the empty tree"));
+            return Err(LedgerError::Genesis(
+                "genesis anchor must be the empty tree",
+            ));
         }
         if env.chain_id != chain_id(&params, b) {
             return Err(LedgerError::WrongChain);
@@ -215,7 +230,11 @@ impl Ledger {
             return Err(LedgerError::Authorization);
         }
 
-        let genesis = Block { height: 0, prev: [0; 32], txs: vec![genesis_tx.to_vec()] };
+        let genesis = Block {
+            height: 0,
+            prev: [0; 32],
+            txs: vec![genesis_tx.to_vec()],
+        };
         let tip = block_id(&env.chain_id, &genesis);
         let mut frontier = Frontier::<MerkleHashOrchard, 32>::empty();
         for action in env.bundle.actions() {
@@ -237,12 +256,23 @@ impl Ledger {
         };
         // Genesis spends nothing; its dummy-spend nullifiers are still recorded
         // so that no published nullifier can ever repeat.
-        ledger.commit(Validated { height: 0, id: tip, block: genesis, envs: vec![env], fees: 0, root });
+        ledger.commit(Validated {
+            height: 0,
+            id: tip,
+            block: genesis,
+            envs: vec![env],
+            fees: 0,
+            root,
+        });
         Ok(ledger)
     }
 
     /// Rebuilds the state from genesis and the accepted blocks (restart/resync).
-    pub fn replay(params: Params, genesis_tx: &[u8], blocks: &[Block]) -> Result<Self, LedgerError> {
+    pub fn replay(
+        params: Params,
+        genesis_tx: &[u8],
+        blocks: &[Block],
+    ) -> Result<Self, LedgerError> {
         let mut ledger = Ledger::from_genesis(params, genesis_tx)?;
         for block in blocks {
             ledger.apply_block(block)?;
@@ -258,7 +288,11 @@ impl Ledger {
     }
 
     /// Runs every rule for `block` against the current state without changing it.
-    pub fn validate_block(&self, block: &Block, proofs: ProofCheck) -> Result<Validated, LedgerError> {
+    pub fn validate_block(
+        &self,
+        block: &Block,
+        proofs: ProofCheck,
+    ) -> Result<Validated, LedgerError> {
         if block.height != self.height + 1 {
             return Err(LedgerError::WrongHeight);
         }
@@ -279,7 +313,9 @@ impl Ledger {
                     return Err(LedgerError::DuplicateNullifier);
                 }
             }
-            fees = fees.checked_add(env.fee).ok_or(LedgerError::FeeExceedsRemainingSupply)?;
+            fees = fees
+                .checked_add(env.fee)
+                .ok_or(LedgerError::FeeExceedsRemainingSupply)?;
             envs.push(env);
         }
         if fees > self.remaining_supply() {
@@ -351,16 +387,24 @@ impl Ledger {
                 let leaf = MerkleHashOrchard::from_cmx(action.cmx());
                 // Prototype: every leaf is marked so test wallets can obtain witnesses.
                 // A node only needs the frontier; wallets track their own notes.
-                self.tree.append(leaf, Retention::Marked).expect("capacity checked");
+                self.tree
+                    .append(leaf, Retention::Marked)
+                    .expect("capacity checked");
                 self.frontier.append(leaf);
                 self.nullifiers.insert(action.nullifier().to_bytes());
                 added += 1;
             }
         }
         let checkpoint = v.height as u32;
-        self.tree.checkpoint(checkpoint).expect("heights strictly increase");
+        self.tree
+            .checkpoint(checkpoint)
+            .expect("heights strictly increase");
         debug_assert_eq!(
-            self.tree.root_at_checkpoint_id(&checkpoint).unwrap().unwrap().to_bytes(),
+            self.tree
+                .root_at_checkpoint_id(&checkpoint)
+                .unwrap()
+                .unwrap()
+                .to_bytes(),
             v.root,
             "frontier and tree agree"
         );
@@ -413,7 +457,10 @@ impl Ledger {
 
     /// Root after the latest block: the anchor a new spend should use.
     pub fn anchor(&self) -> Anchor {
-        Option::from(Anchor::from_bytes(*self.roots.back().expect("genesis root"))).expect("valid root")
+        Option::from(Anchor::from_bytes(
+            *self.roots.back().expect("genesis root"),
+        ))
+        .expect("valid root")
     }
 
     /// Authentication path for the leaf at `position` against [`Self::anchor`].

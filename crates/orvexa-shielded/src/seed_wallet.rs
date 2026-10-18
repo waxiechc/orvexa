@@ -21,7 +21,10 @@ use bip0039::{English, Mnemonic};
 use incrementalmerkletree::{Position, Retention};
 use orchard::{
     builder::BundleType,
-    keys::{FullViewingKey, IncomingViewingKey, PreparedIncomingViewingKey, Scope, SpendAuthorizingKey, SpendingKey},
+    keys::{
+        FullViewingKey, IncomingViewingKey, PreparedIncomingViewingKey, Scope, SpendAuthorizingKey,
+        SpendingKey,
+    },
     note_encryption::IronwoodDomain,
     tree::{MerkleHashOrchard, MerklePath},
     Address, Anchor, Note,
@@ -46,7 +49,10 @@ pub enum SeedError {
     InvalidPhrase,
     Derivation,
     /// Blocks must be scanned in order, each exactly once.
-    OutOfOrder { expected: u64, got: u64 },
+    OutOfOrder {
+        expected: u64,
+        got: u64,
+    },
 }
 
 /// What this wallet instance is allowed to do and see.
@@ -121,7 +127,8 @@ impl SeedWallet {
     /// Restores from a written-down phrase. Whitespace is normalized; case is not.
     pub fn from_phrase(phrase: &str, account: u32) -> Result<Self, SeedError> {
         let normalized = Zeroizing::new(phrase.split_whitespace().collect::<Vec<_>>().join(" "));
-        let mnemonic = Mnemonic::<English>::from_phrase(normalized.as_str()).map_err(|_| SeedError::InvalidPhrase)?;
+        let mnemonic = Mnemonic::<English>::from_phrase(normalized.as_str())
+            .map_err(|_| SeedError::InvalidPhrase)?;
         if mnemonic.phrase().split(' ').count() != WORDS {
             return Err(SeedError::InvalidPhrase);
         }
@@ -129,13 +136,15 @@ impl SeedWallet {
     }
 
     pub(crate) fn from_entropy(entropy: &[u8], account: u32) -> Result<Self, SeedError> {
-        let mnemonic = Mnemonic::<English>::from_entropy(entropy.to_vec()).map_err(|_| SeedError::InvalidPhrase)?;
+        let mnemonic = Mnemonic::<English>::from_entropy(entropy.to_vec())
+            .map_err(|_| SeedError::InvalidPhrase)?;
         if mnemonic.phrase().split(' ').count() != WORDS {
             return Err(SeedError::InvalidPhrase);
         }
         let seed = Zeroizing::new(mnemonic.to_seed(""));
         let account_id = zip32::AccountId::try_from(account).map_err(|_| SeedError::Derivation)?;
-        let sk = SpendingKey::from_zip32_seed(seed.as_ref(), COIN_TYPE, account_id).map_err(|_| SeedError::Derivation)?;
+        let sk = SpendingKey::from_zip32_seed(seed.as_ref(), COIN_TYPE, account_id)
+            .map_err(|_| SeedError::Derivation)?;
         let mut wallet = Self::with_fvk(Access::Spend, FullViewingKey::from(&sk), account);
         wallet.sk = Some(sk);
         wallet.entropy = Some(Zeroizing::new(entropy.to_vec()));
@@ -152,7 +161,9 @@ impl SeedWallet {
 
     fn with_fvk(access: Access, fvk: FullViewingKey, account: u32) -> Self {
         let mut w = Self::empty(access, fvk.to_ivk(Scope::External), account);
-        w.internal = Some(PreparedIncomingViewingKey::new(&fvk.to_ivk(Scope::Internal)));
+        w.internal = Some(PreparedIncomingViewingKey::new(
+            &fvk.to_ivk(Scope::Internal),
+        ));
         w.fvk = Some(fvk);
         w
     }
@@ -190,7 +201,9 @@ impl SeedWallet {
 
     /// Checks words the user typed back at the given 0-based positions.
     pub fn verify_words(&self, picks: &[(usize, &str)]) -> bool {
-        let Some(phrase) = self.phrase() else { return false };
+        let Some(phrase) = self.phrase() else {
+            return false;
+        };
         let words: Vec<&str> = phrase.split(' ').collect();
         !picks.is_empty() && picks.iter().all(|(i, w)| words.get(*i) == Some(&w.trim()))
     }
@@ -235,7 +248,10 @@ impl SeedWallet {
     /// Scans one block (genesis is height 0) in chain order.
     pub fn scan_block(&mut self, height: u64, txs: &[Envelope]) -> Result<(), SeedError> {
         if height != self.next_height {
-            return Err(SeedError::OutOfOrder { expected: self.next_height, got: height });
+            return Err(SeedError::OutOfOrder {
+                expected: self.next_height,
+                got: height,
+            });
         }
         let ovk = self.fvk.as_ref().map(|f| f.to_ovk(Scope::External));
         for env in txs {
@@ -252,12 +268,15 @@ impl SeedWallet {
                     .map(|(note, _, _)| (note, Scope::External))
                     .or_else(|| {
                         let internal = self.internal.as_ref()?;
-                        try_note_decryption(&domain, internal, action).map(|(note, _, _)| (note, Scope::Internal))
+                        try_note_decryption(&domain, internal, action)
+                            .map(|(note, _, _)| (note, Scope::Internal))
                     });
                 let leaf = MerkleHashOrchard::from_cmx(action.cmx());
                 match found {
                     Some((note, scope)) => {
-                        self.tree.append(leaf, Retention::Marked).expect("tree capacity");
+                        self.tree
+                            .append(leaf, Retention::Marked)
+                            .expect("tree capacity");
                         self.notes.push(SeedNote {
                             nullifier: self.fvk.as_ref().map(|f| note.nullifier(f).to_bytes()),
                             note,
@@ -269,21 +288,33 @@ impl SeedWallet {
                             spent_at: None,
                         });
                     }
-                    None => self.tree.append(leaf, Retention::Ephemeral).expect("tree capacity"),
+                    None => self
+                        .tree
+                        .append(leaf, Retention::Ephemeral)
+                        .expect("tree capacity"),
                 }
                 // Payments this wallet sent to others (its own outputs are notes above).
                 if let (Some(ovk), Some(fvk)) = (&ovk, &self.fvk) {
                     let out = &action.encrypted_note().out_ciphertext;
-                    if let Some((sent, _, _)) = try_output_recovery_with_ovk(&domain, ovk, action, action.cv_net(), out) {
+                    if let Some((sent, _, _)) =
+                        try_output_recovery_with_ovk(&domain, ovk, action, action.cv_net(), out)
+                    {
                         if fvk.scope_for_address(&sent.recipient()).is_none() {
-                            self.sent.push(SentPayment { note: sent, height, txid, action: index as u8 });
+                            self.sent.push(SentPayment {
+                                note: sent,
+                                height,
+                                txid,
+                                action: index as u8,
+                            });
                         }
                     }
                 }
                 self.leaves += 1;
             }
         }
-        self.tree.checkpoint(height as u32).expect("heights increase");
+        self.tree
+            .checkpoint(height as u32)
+            .expect("heights increase");
         // A transfer that can no longer be mined frees its notes again.
         self.pending.retain(|_, expiry| *expiry > height);
         self.next_height = height + 1;
@@ -292,33 +323,48 @@ impl SeedWallet {
 
     fn spendable(&self) -> impl Iterator<Item = &SeedNote> {
         self.notes.iter().filter(|n| {
-            n.spent_at.is_none() && n.nullifier.is_some_and(|nf| !self.pending.contains_key(&nf)) && n.note.value().inner() > 0
+            n.spent_at.is_none()
+                && n.nullifier
+                    .is_some_and(|nf| !self.pending.contains_key(&nf))
+                && n.note.value().inner() > 0
         })
     }
 
     /// Confirmed balance not reserved by a pending transfer. `None` for an
     /// incoming-only key: it cannot see spends, so it cannot know a balance.
     pub fn balance(&self) -> Option<u64> {
-        (self.access != Access::ViewIncoming).then(|| self.spendable().map(|n| n.note.value().inner()).sum())
+        (self.access != Access::ViewIncoming)
+            .then(|| self.spendable().map(|n| n.note.value().inner()).sum())
     }
 
     /// Total received on external addresses: what any key of this wallet sees.
     pub fn received(&self) -> u64 {
-        self.notes.iter().filter(|n| n.scope == Scope::External).map(|n| n.note.value().inner()).sum()
+        self.notes
+            .iter()
+            .filter(|n| n.scope == Scope::External)
+            .map(|n| n.note.value().inner())
+            .sum()
     }
 
     /// Value of notes locked by transfers sent but not yet confirmed.
     pub fn pending(&self) -> u64 {
         self.notes
             .iter()
-            .filter(|n| n.spent_at.is_none() && n.nullifier.is_some_and(|nf| self.pending.contains_key(&nf)))
+            .filter(|n| {
+                n.spent_at.is_none() && n.nullifier.is_some_and(|nf| self.pending.contains_key(&nf))
+            })
             .map(|n| n.note.value().inner())
             .sum()
     }
 
     /// Spent nullifiers this wallet knows of, sorted.
     pub fn spent_nullifiers(&self) -> Vec<[u8; 32]> {
-        let mut v: Vec<_> = self.notes.iter().filter(|n| n.spent_at.is_some()).filter_map(|n| n.nullifier).collect();
+        let mut v: Vec<_> = self
+            .notes
+            .iter()
+            .filter(|n| n.spent_at.is_some())
+            .filter_map(|n| n.nullifier)
+            .collect();
         v.sort();
         v
     }
@@ -326,7 +372,11 @@ impl SeedWallet {
     /// Root of the wallet's own tree after the last scanned block.
     pub fn anchor(&self) -> Option<Anchor> {
         let checkpoint = u32::try_from(self.next_height.checked_sub(1)?).ok()?;
-        self.tree.root_at_checkpoint_id(&checkpoint).ok().flatten().map(Anchor::from)
+        self.tree
+            .root_at_checkpoint_id(&checkpoint)
+            .ok()
+            .flatten()
+            .map(Anchor::from)
     }
 
     fn witness(&self, position: u64) -> Option<MerklePath> {
@@ -367,8 +417,12 @@ impl SeedWallet {
             if total >= need {
                 break;
             }
-            let path = self.witness(owned.position).ok_or(WalletError::MissingWitness)?;
-            total = total.checked_add(owned.note.value().inner()).ok_or(WalletError::Overflow)?;
+            let path = self
+                .witness(owned.position)
+                .ok_or(WalletError::MissingWitness)?;
+            total = total
+                .checked_add(owned.note.value().inner())
+                .ok_or(WalletError::Overflow)?;
             picked.push((fvk.clone(), owned.note, path));
             used.push(owned.nullifier.expect("spend access has nullifiers"));
         }
@@ -398,6 +452,13 @@ impl SeedWallet {
         Ok(env)
     }
 
+    /// Frees the notes a transfer reserved, after the node refused it.
+    pub fn release(&mut self, env: &Envelope) {
+        for nf in env.nullifiers() {
+            self.pending.remove(&nf);
+        }
+    }
+
     /// Public payment: the same private transfer plus a receipt meant to be
     /// published. Requires consent for exactly this recipient and amount.
     pub fn public_transfer(
@@ -413,25 +474,53 @@ impl SeedWallet {
             return Err(WalletError::ConsentMismatch);
         }
         let env = self.transfer(chain_id, to, amount, fee, expiry_delta)?;
-        let receipt = self.receipt_for_output(chain_id, &env, to, amount).ok_or(WalletError::ConsentMismatch)?;
+        let receipt = self
+            .receipt_for_output(chain_id, &env, to, amount)
+            .ok_or(WalletError::ConsentMismatch)?;
         Ok((env, receipt))
     }
 
     /// Receipt for one payment this wallet sent (found by OVK) or received.
-    pub fn payment_receipt(&self, chain_id: [u8; 32], txid: [u8; 32], action: u8) -> Option<PaymentReceipt> {
-        let sent = self.sent.iter().find(|p| p.txid == txid && p.action == action).map(|p| p.note);
-        let received = self.notes.iter().find(|n| n.txid == txid && n.action == action).map(|n| n.note);
-        sent.or(received).map(|note| PaymentReceipt::for_note(chain_id, txid, action, &note))
+    pub fn payment_receipt(
+        &self,
+        chain_id: [u8; 32],
+        txid: [u8; 32],
+        action: u8,
+    ) -> Option<PaymentReceipt> {
+        let sent = self
+            .sent
+            .iter()
+            .find(|p| p.txid == txid && p.action == action)
+            .map(|p| p.note);
+        let received = self
+            .notes
+            .iter()
+            .find(|n| n.txid == txid && n.action == action)
+            .map(|n| n.note);
+        sent.or(received)
+            .map(|note| PaymentReceipt::for_note(chain_id, txid, action, &note))
     }
 
-    fn receipt_for_output(&self, chain_id: [u8; 32], env: &Envelope, to: Address, amount: u64) -> Option<PaymentReceipt> {
+    fn receipt_for_output(
+        &self,
+        chain_id: [u8; 32],
+        env: &Envelope,
+        to: Address,
+        amount: u64,
+    ) -> Option<PaymentReceipt> {
         let ovk = self.fvk.as_ref()?.to_ovk(Scope::External);
         let txid = env.txid();
-        env.bundle.actions().iter().enumerate().find_map(|(i, action)| {
-            let domain = IronwoodDomain::for_action(action);
-            let out = &action.encrypted_note().out_ciphertext;
-            let (note, _, _) = try_output_recovery_with_ovk(&domain, &ovk, action, action.cv_net(), out)?;
-            (note.recipient() == to && note.value().inner() == amount).then(|| PaymentReceipt::for_note(chain_id, txid, i as u8, &note))
-        })
+        env.bundle
+            .actions()
+            .iter()
+            .enumerate()
+            .find_map(|(i, action)| {
+                let domain = IronwoodDomain::for_action(action);
+                let out = &action.encrypted_note().out_ciphertext;
+                let (note, _, _) =
+                    try_output_recovery_with_ovk(&domain, &ovk, action, action.cv_net(), out)?;
+                (note.recipient() == to && note.value().inner() == amount)
+                    .then(|| PaymentReceipt::for_note(chain_id, txid, i as u8, &note))
+            })
     }
 }

@@ -5,6 +5,7 @@ import { Children, useCallback, useEffect, useRef, useState, type FormEvent, typ
 import { Activity, ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Blocks, Check, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Copy, Download, FileKey2, Globe2, History as HistoryIcon, Home, KeyRound, LockKeyhole, Menu, Plus, RefreshCw, Search, Settings2, ShieldCheck, Upload, Wallet as WalletIcon, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import NodePanel from './NodePanel';
+import PrivatePanel from './PrivatePanel';
 import { atoms, availableBalance, errorText, node, NodeError, parseNodeJson, requestRaw, short, type Balance, type BlockDetails, type Genesis, type History, type Status, type TxDetails } from './adapter';
 import { downloadWallet, localCrypto, readWallets, saveWallets, type Wallet } from './vault';
 
@@ -24,6 +25,7 @@ const navGroups = [
   [['dashboard', 'Dashboard', Home], ['send', 'Send', ArrowUpRight], ['receive', 'Receive', ArrowDownLeft], ['transactions', 'Transactions', HistoryIcon]],
   [['explorer', 'Explorer', Globe2], ['node', 'Node', Activity]],
   [['wallets', 'Wallets', WalletIcon], ['backup', 'Backup & Restore', FileKey2], ['settings', 'Settings', Settings2]],
+  [['private', 'Private network v2', LockKeyhole]],
 ] as const;
 const routes = navGroups.flat();
 const verifiedNetworks = new Set<string>();
@@ -39,29 +41,29 @@ function count(value: number | string, en: [string, string], ru: [string, string
   return `${shown} ${m10 === 1 && m100 !== 11 ? ru[0] : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? ru[1] : ru[2]}`;
 }
 
-function Button({ children, kind = 'primary', className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { kind?: 'primary' | 'secondary' | 'ghost'; children: ReactNode }) {
+export function Button({ children, kind = 'primary', className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { kind?: 'primary' | 'secondary' | 'ghost'; children: ReactNode }) {
   return <button className={`button ${kind} ${className}`} {...props}>{children}</button>;
 }
-function Badge({ children, pending = false }: { children: ReactNode; pending?: boolean }) {
+export function Badge({ children, pending = false }: { children: ReactNode; pending?: boolean }) {
   return <span className={`badge ${pending ? 'pending' : ''}`}>{pending ? <span className="badge-pulse" aria-hidden="true"/> : <Check size={12}/>} {children}</span>;
 }
-function Notice({ children, error = false }: { children: ReactNode; error?: boolean }) {
+export function Notice({ children, error = false }: { children: ReactNode; error?: boolean }) {
   return <div className={`notice ${error ? 'error' : ''}`} role={error ? 'alert' : undefined}><CircleAlert size={18}/><div>{Children.map(children, child => typeof child === 'string' ? localizedError(child) : child)}</div></div>;
 }
-function Empty({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
+export function Empty({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return <div className="empty"><img className="empty-mark" src="/brand/orvexa-symbol.svg" alt="" aria-hidden="true"/><h3>{title}</h3><p>{children}</p>{action}</div>;
 }
-function CopyButton({ value, label = 'Copy' }: { value: string; label?: string }) {
+export function CopyButton({ value, label = 'Copy' }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false); const [failed, setFailed] = useState(false);
   return <><button className="copy-button" type="button" aria-label={t(label)} onClick={async () => {
     try { await navigator.clipboard.writeText(value); setCopied(true); setFailed(false); setTimeout(() => setCopied(false), 2000); }
     catch { setFailed(true); }
   }}>{copied ? <Check size={15}/> : <Copy size={15}/>}<span>{copied ? t("Copied") : t(label)}</span></button>{failed && <small role="alert">{t("Select and copy the text manually.")}</small>}</>;
 }
-function Hash({ value, label }: { value: string; label?: string }) {
+export function Hash({ value, label }: { value: string; label?: string }) {
   return <div className="hash-value"><code title={value}>{value}</code><CopyButton value={value} label={label || t("Copy")}/></div>;
 }
-function Modal({ title, children, close, busy = false }: { title: string; children: ReactNode; close: () => void; busy?: boolean }) {
+export function Modal({ title, children, close, busy = false }: { title: string; children: ReactNode; close: () => void; busy?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); return () => ref.current?.close(); }, []);
   return <dialog ref={ref} className="dialog" onCancel={e => { e.preventDefault(); if (!busy) close(); }}>
@@ -484,9 +486,9 @@ export default function App() {
       <div className="sidebar-foot"><div className="network-chip"><span className={`connection-dot ${online ? 'online' : ''}`}/><div><strong>{t("V1 testnet")}</strong><span>{t("Test atoms. No monetary value.")}</span></div></div></div>
     </aside>
     <div className="main-shell" inert={mobile && mobileNav}><header className="topbar"><button ref={menuButton} className="icon-button mobile-menu" aria-label={t("Open navigation")} aria-controls="primary-navigation" aria-expanded={mobileNav} onClick={() => setMobileNav(true)}><Menu size={21}/></button><img className="topbar-symbol" src="/brand/orvexa-symbol.svg" alt="" aria-hidden="true"/>
-      <div className="topbar-right"><div className={`connection-state ${connectionState}`} title={sync ? t("Syncing: block #{v0} of #{v1}. The balance may be incomplete.", { v0: atoms(sync.local), v1: atoms(sync.target) }) : undefined}><span className="connection-dot"/><span className="connection-text">{connection}</span></div><button className="icon-button refresh-button" onClick={refresh} disabled={refreshing} aria-label={t("Refresh node data")} title={t("Refresh node data")}><RefreshCw size={16} className={refreshing ? 'spinning' : ''}/></button><label className="locale-picker"><span className="sr-only">{t("Language")}</span><select aria-label={t("Language")} value={locale} onChange={e => setLocale(e.target.value as 'ru' | 'en')}><option value="ru">RU</option><option value="en">EN</option></select></label><WalletPicker wallets={wallets} active={wallet} select={select}/></div></header>
+      <div className="topbar-right">{page !== 'private' && <><div className={`connection-state ${connectionState}`} title={sync ? t("Syncing: block #{v0} of #{v1}. The balance may be incomplete.", { v0: atoms(sync.local), v1: atoms(sync.target) }) : undefined}><span className="connection-dot"/><span className="connection-text">{connection}</span></div><button className="icon-button refresh-button" onClick={refresh} disabled={refreshing} aria-label={t("Refresh node data")} title={t("Refresh node data")}><RefreshCw size={16} className={refreshing ? 'spinning' : ''}/></button></>}<label className="locale-picker"><span className="sr-only">{t("Language")}</span><select aria-label={t("Language")} value={locale} onChange={e => setLocale(e.target.value as 'ru' | 'en')}><option value="ru">RU</option><option value="en">EN</option></select></label>{page !== 'private' && <WalletPicker wallets={wallets} active={wallet} select={select}/>}</div></header>
       <main id="main-content" tabIndex={-1}><div className="page-heading"><h1>{title}</h1></div>
-        {error && page !== 'node' && <Notice error>{error}{snapshot && <p>{t("Showing last known state from ")}{snapshot.checked.toLocaleTimeString(timeLocale())}{t(". Signing is disabled.")}</p>}</Notice>}
+        {error && page !== 'node' && page !== 'private' && <Notice error>{error}{snapshot && <p>{t("Showing last known state from ")}{snapshot.checked.toLocaleTimeString(timeLocale())}{t(". Signing is disabled.")}</p>}</Notice>}
         {localError && <Notice error>{localError}</Notice>}
         {receipt && <div className="receipt" role="status"><span className="receipt-icon"><CheckCheck size={18}/></span><div><strong>{t("Transfer submitted")}</strong><span>{t("Track its current status in Explorer")}</span></div><a href={`#/explorer/tx/${receipt}`}>{t("View in Explorer")}<ArrowUpRight size={15}/></a><button className="icon-button" aria-label={t("Dismiss transfer notice")} onClick={() => setReceipt('')}><X size={17}/></button></div>}
         {page === 'dashboard' && <Dashboard snapshot={safeSnapshot} wallet={wallet} entries={entries} online={online} sync={sync} create={showCreate} restore={showRestore} produce={openProduce}/>}
@@ -498,6 +500,7 @@ export default function App() {
         {page === 'settings' && <Settings snapshot={safeSnapshot} observed={observed} online={online} interval={interval} setIntervalValue={setIntervalValue} produce={openProduce} adopt={() => { if (observed?.protocol === '1') { localStorage.setItem('orvexa.chain', observed.chain_id); setSnapshot(undefined); setReceipt(''); refresh(); } }}/>}
         {page === 'explorer' && <Explorer route={route} snapshot={safeSnapshot} online={online} produce={openProduce}/>}
         {page === 'node' && <NodePanel changed={refresh}/>}
+        {page === 'private' && <PrivatePanel route={route}/>}
         {!routes.some(r => r[0] === page) && <Empty title={t("Page not found")}>{t("Choose a page from the navigation.")}</Empty>}
         <footer className="page-footer"><span>{snapshot ? t("State checked {v0}", { v0: snapshot.checked.toLocaleTimeString(timeLocale()) }) : t("Waiting for node")}</span><span>{t("No real funds")}</span></footer>
       </main>

@@ -56,16 +56,29 @@ impl SeedNet {
         let envs = vec![Envelope::decode(&genesis).unwrap()];
         a.scan_block(0, &envs).unwrap();
         b.scan_block(0, &envs).unwrap();
-        SeedNet { ledger, history: vec![(0, envs)], a, b }
+        SeedNet {
+            ledger,
+            history: vec![(0, envs)],
+            a,
+            b,
+        }
     }
 
     fn mine(&mut self, txs: Vec<Envelope>) {
         let height = self.ledger.height() + 1;
-        let block = Block { height, prev: self.ledger.tip(), txs: txs.iter().map(Envelope::encode).collect() };
+        let block = Block {
+            height,
+            prev: self.ledger.tip(),
+            txs: txs.iter().map(Envelope::encode).collect(),
+        };
         self.ledger.apply_block(&block).unwrap();
         self.a.scan_block(height, &txs).unwrap();
         self.b.scan_block(height, &txs).unwrap();
-        assert_eq!(self.a.anchor().unwrap().to_bytes(), self.ledger.anchor().to_bytes(), "wallet tree = ledger tree");
+        assert_eq!(
+            self.a.anchor().unwrap().to_bytes(),
+            self.ledger.anchor().to_bytes(),
+            "wallet tree = ledger tree"
+        );
         self.history.push((height, txs));
     }
 
@@ -79,10 +92,18 @@ impl SeedNet {
 #[test]
 fn bip39_matches_official_vectors() {
     for (entropy, phrase, seed) in TREZOR {
-        let m = bip0039::Mnemonic::<bip0039::English>::from_entropy(hex::decode(entropy).unwrap()).unwrap();
+        let m = bip0039::Mnemonic::<bip0039::English>::from_entropy(hex::decode(entropy).unwrap())
+            .unwrap();
         assert_eq!(m.phrase(), phrase);
         assert_eq!(hex::encode(m.to_seed("TREZOR")), seed);
-        assert_eq!(SeedWallet::from_phrase(phrase, 0).unwrap().phrase().unwrap().as_str(), phrase);
+        assert_eq!(
+            SeedWallet::from_phrase(phrase, 0)
+                .unwrap()
+                .phrase()
+                .unwrap()
+                .as_str(),
+            phrase
+        );
     }
 }
 
@@ -97,12 +118,34 @@ fn phrase_round_trip_and_rejections() {
 
     let mut words: Vec<&str> = phrase.split(' ').collect();
     let last = words[23];
-    words[23] = if last == "abandon" { "ability" } else { "abandon" };
-    assert_eq!(SeedWallet::from_phrase(&words.join(" "), 0).err(), Some(SeedError::InvalidPhrase), "checksum");
+    words[23] = if last == "abandon" {
+        "ability"
+    } else {
+        "abandon"
+    };
+    assert_eq!(
+        SeedWallet::from_phrase(&words.join(" "), 0).err(),
+        Some(SeedError::InvalidPhrase),
+        "checksum"
+    );
     words[23] = "notaword";
-    assert_eq!(SeedWallet::from_phrase(&words.join(" "), 0).err(), Some(SeedError::InvalidPhrase), "unknown word");
-    let twelve = TREZOR[0].1.split(' ').take(11).chain(["about"]).collect::<Vec<_>>().join(" ");
-    assert_eq!(SeedWallet::from_phrase(&twelve, 0).err(), Some(SeedError::InvalidPhrase), "only 24 words");
+    assert_eq!(
+        SeedWallet::from_phrase(&words.join(" "), 0).err(),
+        Some(SeedError::InvalidPhrase),
+        "unknown word"
+    );
+    let twelve = TREZOR[0]
+        .1
+        .split(' ')
+        .take(11)
+        .chain(["about"])
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert_eq!(
+        SeedWallet::from_phrase(&twelve, 0).err(),
+        Some(SeedError::InvalidPhrase),
+        "only 24 words"
+    );
 
     let all: Vec<String> = phrase.split(' ').map(str::to_owned).collect();
     assert!(w.verify_words(&[(0, &all[0]), (11, &all[11]), (23, &all[23])]));
@@ -114,22 +157,40 @@ fn phrase_round_trip_and_rejections() {
 fn derivation_is_deterministic_per_account() {
     let phrase = TREZOR[0].1;
     let a0 = SeedWallet::from_phrase(phrase, 0).unwrap();
-    assert_eq!(a0.address(), SeedWallet::from_phrase(phrase, 0).unwrap().address());
-    assert_ne!(a0.address(), SeedWallet::from_phrase(phrase, 1).unwrap().address());
-    assert_ne!(a0.address(), SeedWallet::from_phrase(TREZOR[1].1, 0).unwrap().address());
+    assert_eq!(
+        a0.address(),
+        SeedWallet::from_phrase(phrase, 0).unwrap().address()
+    );
+    assert_ne!(
+        a0.address(),
+        SeedWallet::from_phrase(phrase, 1).unwrap().address()
+    );
+    assert_ne!(
+        a0.address(),
+        SeedWallet::from_phrase(TREZOR[1].1, 0).unwrap().address()
+    );
 }
 
 #[test]
 fn p4_01_diversified_addresses_one_scan() {
     let mut n = SeedNet::new();
     let addrs = [n.b.address(), n.b.new_address(), n.b.new_address()];
-    assert!(addrs[0] != addrs[1] && addrs[1] != addrs[2], "addresses are distinct");
+    assert!(
+        addrs[0] != addrs[1] && addrs[1] != addrs[2],
+        "addresses are distinct"
+    );
     let chain = n.ledger.chain_id();
     for (i, to) in addrs.iter().enumerate() {
-        let tx = n.a.transfer(chain, *to, 10_000 * (i as u64 + 1), 10, 20).unwrap();
+        let tx =
+            n.a.transfer(chain, *to, 10_000 * (i as u64 + 1), 10, 20)
+                .unwrap();
         n.mine(vec![tx]);
     }
-    assert_eq!(n.b.balance().unwrap(), 60_000, "one viewing key finds every diversified address");
+    assert_eq!(
+        n.b.balance().unwrap(),
+        60_000,
+        "one viewing key finds every diversified address"
+    );
     assert_eq!(n.a.balance().unwrap(), SUPPLY - 60_000 - 30);
     assert_eq!(n.a.pending(), 0);
 }
@@ -137,7 +198,9 @@ fn p4_01_diversified_addresses_one_scan() {
 #[test]
 fn p4_02_tampered_ciphertext_and_strangers_credit_nothing() {
     let mut n = SeedNet::new();
-    let tx = n.a.transfer(n.ledger.chain_id(), n.b.address(), 5_000, 10, 20).unwrap();
+    let tx =
+        n.a.transfer(n.ledger.chain_id(), n.b.address(), 5_000, 10, 20)
+            .unwrap();
     // Flip one byte of the first encrypted note, outside the ledger.
     let mut bytes = tx.encode();
     for i in 0..tx.bundle.actions().len() {
@@ -146,8 +209,14 @@ fn p4_02_tampered_ciphertext_and_strangers_credit_nothing() {
     let tampered = Envelope::decode(&bytes).unwrap();
     let mut b_copy = SeedWallet::from_phrase(&n.b.phrase().unwrap(), 0).unwrap();
     n.rescan(&mut b_copy);
-    b_copy.scan_block(n.ledger.height() + 1, &[tampered]).unwrap();
-    assert_eq!(b_copy.balance().unwrap(), 0, "a modified ciphertext is not credited");
+    b_copy
+        .scan_block(n.ledger.height() + 1, &[tampered])
+        .unwrap();
+    assert_eq!(
+        b_copy.balance().unwrap(),
+        0,
+        "a modified ciphertext is not credited"
+    );
 
     let mut stranger = SeedWallet::generate();
     n.mine(vec![tx]);
@@ -174,16 +243,29 @@ fn p4_03_restore_on_another_device_and_rescan() {
         assert_eq!(restored.balance().unwrap(), original.balance().unwrap());
         assert_eq!(restored.spent_nullifiers(), original.spent_nullifiers());
         assert_eq!(restored.notes.len(), original.notes.len());
-        assert_eq!(restored.anchor().unwrap().to_bytes(), n.ledger.anchor().to_bytes());
+        assert_eq!(
+            restored.anchor().unwrap().to_bytes(),
+            n.ledger.anchor().to_bytes()
+        );
     }
     assert_eq!(n.b.balance().unwrap(), 250_000 - 70_000 - 10 + 1_234);
-    assert!(n.b.notes.iter().any(|x| x.scope == orchard::keys::Scope::Internal), "change was found");
-    assert_eq!(n.a.balance().unwrap() + n.b.balance().unwrap() + n.ledger.burned(), SUPPLY);
+    assert!(
+        n.b.notes
+            .iter()
+            .any(|x| x.scope == orchard::keys::Scope::Internal),
+        "change was found"
+    );
+    assert_eq!(
+        n.a.balance().unwrap() + n.b.balance().unwrap() + n.ledger.burned(),
+        SUPPLY
+    );
 
     // The restored wallet can spend.
     let mut restored = SeedWallet::from_phrase(&n.b.phrase().unwrap(), 0).unwrap();
     n.rescan(&mut restored);
-    let spend = restored.transfer(chain, n.a.address(), 100, 10, 20).unwrap();
+    let spend = restored
+        .transfer(chain, n.a.address(), 100, 10, 20)
+        .unwrap();
     n.mine(vec![spend]);
 }
 
@@ -195,41 +277,73 @@ fn p4_05_06_encrypted_file() {
     let chain = [5u8; 32];
     let password = "correct horse battery staple";
 
-    assert_eq!(seed_file::create(&path, &w, chain, "short").err(), Some(SeedFileError::WeakPassword));
+    assert_eq!(
+        seed_file::create(&path, &w, chain, "short").err(),
+        Some(SeedFileError::WeakPassword)
+    );
     let meta = seed_file::create(&path, &w, chain, password).unwrap();
     assert_eq!(meta.chain_id, hex::encode(chain));
-    let leftovers: Vec<_> = std::fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).map(|e| e.file_name()).collect();
+    let leftovers: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name())
+        .collect();
     assert_eq!(leftovers.len(), 1, "no temporary file left: {leftovers:?}");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
 
     let (unlocked, _) = seed_file::unlock(&path, password).unwrap();
     assert_eq!(unlocked.phrase().unwrap().as_str(), TREZOR[1].1);
-    assert_eq!(seed_file::unlock(&path, "correct horse battery stapler").err(), Some(SeedFileError::Decrypt));
+    assert_eq!(
+        seed_file::unlock(&path, "correct horse battery stapler").err(),
+        Some(SeedFileError::Decrypt)
+    );
 
     let original = std::fs::read(&path).unwrap();
     // Never overwritten, even by a create with another wallet.
     let other = SeedWallet::generate();
-    assert_eq!(seed_file::create(&path, &other, chain, password).err(), Some(SeedFileError::AlreadyExists));
+    assert_eq!(
+        seed_file::create(&path, &other, chain, password).err(),
+        Some(SeedFileError::AlreadyExists)
+    );
     assert_eq!(std::fs::read(&path).unwrap(), original);
 
     // Authenticated metadata: changing the birthday breaks decryption.
-    let text = String::from_utf8(original.clone()).unwrap().replace("\"birthday\": 0", "\"birthday\": 7");
+    let text = String::from_utf8(original.clone())
+        .unwrap()
+        .replace("\"birthday\": 0", "\"birthday\": 7");
     let tampered = dir.join("tampered");
     std::fs::write(&tampered, text).unwrap();
-    assert_eq!(seed_file::unlock(&tampered, password).err(), Some(SeedFileError::Decrypt));
+    assert_eq!(
+        seed_file::unlock(&tampered, password).err(),
+        Some(SeedFileError::Decrypt)
+    );
     // Truncated and oversized files.
     std::fs::write(&tampered, &original[..original.len() / 2]).unwrap();
-    assert_eq!(seed_file::unlock(&tampered, password).err(), Some(SeedFileError::Format));
+    assert_eq!(
+        seed_file::unlock(&tampered, password).err(),
+        Some(SeedFileError::Format)
+    );
     std::fs::write(&tampered, vec![b' '; 9000]).unwrap();
-    assert_eq!(seed_file::unlock(&tampered, password).err(), Some(SeedFileError::TooLarge));
+    assert_eq!(
+        seed_file::unlock(&tampered, password).err(),
+        Some(SeedFileError::TooLarge)
+    );
     // Unknown format version.
-    let text = String::from_utf8(original.clone()).unwrap().replace("\"version\": 2", "\"version\": 3");
+    let text = String::from_utf8(original.clone())
+        .unwrap()
+        .replace("\"version\": 2", "\"version\": 3");
     std::fs::write(&tampered, text).unwrap();
-    assert_eq!(seed_file::unlock(&tampered, password).err(), Some(SeedFileError::Format));
+    assert_eq!(
+        seed_file::unlock(&tampered, password).err(),
+        Some(SeedFileError::Format)
+    );
 }
 
 #[test]
@@ -247,7 +361,10 @@ fn p4_07_secrets_never_printed() {
     for leak in [TREZOR[2].0, "letter advice", password] {
         assert!(!file.contains(leak), "file leaks plaintext");
     }
-    let err = format!("{:?}", seed_file::unlock(&path, "wrong password here").err());
+    let err = format!(
+        "{:?}",
+        seed_file::unlock(&path, "wrong password here").err()
+    );
     assert!(!err.contains(password) && !err.contains("wrong password here"));
 }
 
@@ -259,7 +376,11 @@ fn p4_08_pending_expiry_and_no_double_credit() {
     // Sent but never mined, expires after 2 blocks.
     let lost = n.a.transfer(chain, n.b.address(), 1_000, 10, 2).unwrap();
     assert!(n.a.pending() > 0);
-    assert_eq!(n.a.balance().unwrap() + n.a.pending(), total, "pending is separate from confirmed");
+    assert_eq!(
+        n.a.balance().unwrap() + n.a.pending(),
+        total,
+        "pending is separate from confirmed"
+    );
     drop(lost);
     n.mine(vec![]);
     n.mine(vec![]);
@@ -272,7 +393,13 @@ fn p4_08_pending_expiry_and_no_double_credit() {
     let tx = n.a.transfer(chain, n.b.address(), 2_000, 10, 20).unwrap();
     n.mine(vec![tx.clone()]);
     let h = n.ledger.height();
-    assert_eq!(n.b.scan_block(h, &[tx]), Err(SeedError::OutOfOrder { expected: h + 1, got: h }));
+    assert_eq!(
+        n.b.scan_block(h, &[tx]),
+        Err(SeedError::OutOfOrder {
+            expected: h + 1,
+            got: h
+        })
+    );
     assert_eq!(n.b.balance().unwrap(), 2_000);
 }
 
@@ -281,8 +408,20 @@ fn seed_wallet_amount_checks() {
     let mut n = SeedNet::new();
     let chain = n.ledger.chain_id();
     let to = n.b.address();
-    assert_eq!(n.a.transfer(chain, to, 0, 10, 20).err(), Some(WalletError::ZeroAmount));
-    assert_eq!(n.a.transfer(chain, to, 1, 0, 20).err(), Some(WalletError::FeeBelowMinimum));
-    assert_eq!(n.a.transfer(chain, to, u64::MAX, 10, 20).err(), Some(WalletError::Overflow));
-    assert_eq!(n.b.transfer(chain, n.a.address(), 1, 10, 20).err(), Some(WalletError::InsufficientFunds));
+    assert_eq!(
+        n.a.transfer(chain, to, 0, 10, 20).err(),
+        Some(WalletError::ZeroAmount)
+    );
+    assert_eq!(
+        n.a.transfer(chain, to, 1, 0, 20).err(),
+        Some(WalletError::FeeBelowMinimum)
+    );
+    assert_eq!(
+        n.a.transfer(chain, to, u64::MAX, 10, 20).err(),
+        Some(WalletError::Overflow)
+    );
+    assert_eq!(
+        n.b.transfer(chain, n.a.address(), 1, 10, 20).err(),
+        Some(WalletError::InsufficientFunds)
+    );
 }

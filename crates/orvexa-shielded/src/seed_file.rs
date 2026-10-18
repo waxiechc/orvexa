@@ -82,7 +82,12 @@ fn derive(password: &str, salt: &[u8; 16]) -> Zeroizing<[u8; 32]> {
 }
 
 /// Encrypts the wallet's seed. Never overwrites `path`.
-pub fn create(path: &Path, wallet: &SeedWallet, chain_id: [u8; 32], password: &str) -> Result<Metadata, SeedFileError> {
+pub fn create(
+    path: &Path,
+    wallet: &SeedWallet,
+    chain_id: [u8; 32],
+    password: &str,
+) -> Result<Metadata, SeedFileError> {
     let entropy = wallet.entropy().ok_or(SeedFileError::NoSeed)?;
     if password.chars().count() < MIN_PASSWORD_CHARS {
         return Err(SeedFileError::WeakPassword);
@@ -113,10 +118,19 @@ pub fn create(path: &Path, wallet: &SeedWallet, chain_id: [u8; 32], password: &s
     let key = derive(password, &salt);
     let cipher = XChaCha20Poly1305::new_from_slice(key.as_ref()).expect("32-byte key");
     let ciphertext = cipher
-        .encrypt(XNonce::from_slice(&nonce), Payload { msg: entropy, aad: &aad })
+        .encrypt(
+            XNonce::from_slice(&nonce),
+            Payload {
+                msg: entropy,
+                aad: &aad,
+            },
+        )
         .map_err(|_| SeedFileError::Decrypt)?;
-    let body = serde_json::to_vec_pretty(&Container { metadata: metadata.clone(), ciphertext: hex::encode(ciphertext) })
-        .expect("plain struct");
+    let body = serde_json::to_vec_pretty(&Container {
+        metadata: metadata.clone(),
+        ciphertext: hex::encode(ciphertext),
+    })
+    .expect("plain struct");
     write_new(path, &body)?;
     Ok(metadata)
 }
@@ -125,7 +139,10 @@ pub fn create(path: &Path, wallet: &SeedWallet, chain_id: [u8; 32], password: &s
 /// the link fails if `path` exists, so an existing backup is never replaced,
 /// and a crash leaves either no file or a complete one.
 fn write_new(path: &Path, body: &[u8]) -> Result<(), SeedFileError> {
-    let dir = path.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let dir = path
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
     let mut tag = [0u8; 8];
     crate::keys::os_rng().fill_bytes(&mut tag);
     let temp = dir.join(format!(".orvexa-seed-{}.tmp", hex::encode(tag)));
@@ -142,7 +159,9 @@ fn write_new(path: &Path, body: &[u8]) -> Result<(), SeedFileError> {
         file.sync_all()?;
         drop(file);
         match fs::hard_link(&temp, path) {
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Err(SeedFileError::AlreadyExists),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                Err(SeedFileError::AlreadyExists)
+            }
             other => other.map_err(SeedFileError::from),
         }
     })();
@@ -169,10 +188,17 @@ pub fn unlock(path: &Path, password: &str) -> Result<(SeedWallet, Metadata), See
     let cipher = XChaCha20Poly1305::new_from_slice(key.as_ref()).expect("32-byte key");
     let entropy = Zeroizing::new(
         cipher
-            .decrypt(XNonce::from_slice(&nonce), Payload { msg: &ciphertext, aad: &aad })
+            .decrypt(
+                XNonce::from_slice(&nonce),
+                Payload {
+                    msg: &ciphertext,
+                    aad: &aad,
+                },
+            )
             .map_err(|_| SeedFileError::Decrypt)?,
     );
-    let wallet = SeedWallet::from_entropy(&entropy, m.account).map_err(|_| SeedFileError::Format)?;
+    let wallet =
+        SeedWallet::from_entropy(&entropy, m.account).map_err(|_| SeedFileError::Format)?;
     Ok((wallet, container.metadata))
 }
 
@@ -203,5 +229,8 @@ fn read(path: &Path) -> Result<Container, SeedFileError> {
 }
 
 fn hex_array<const N: usize>(s: &str) -> Result<[u8; N], SeedFileError> {
-    hex::decode(s).ok().and_then(|v| v.try_into().ok()).ok_or(SeedFileError::Format)
+    hex::decode(s)
+        .ok()
+        .and_then(|v| v.try_into().ok())
+        .ok_or(SeedFileError::Format)
 }

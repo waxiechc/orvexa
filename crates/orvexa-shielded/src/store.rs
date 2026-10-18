@@ -65,13 +65,20 @@ impl Store {
         let mut conn = connect(path)?;
         conn.execute_batch(SCHEMA)?;
         let tx = conn.transaction()?;
-        tx.execute("INSERT INTO meta VALUES ('params', ?1)", [encode_params(&params)])?;
+        tx.execute(
+            "INSERT INTO meta VALUES ('params', ?1)",
+            [encode_params(&params)],
+        )?;
         tx.execute("INSERT INTO meta VALUES ('genesis', ?1)", [genesis_tx])?;
         let genesis = ledger_genesis_effects(&ledger, genesis_tx)?;
         write_effects(&tx, &genesis, 0)?;
         write_tip(&tx, &ledger)?;
         tx.commit()?;
-        Ok(Store { conn, ledger, fault: None })
+        Ok(Store {
+            conn,
+            ledger,
+            fault: None,
+        })
     }
 
     /// Opens an existing store, recomputing the state from its blocks.
@@ -90,18 +97,23 @@ impl Store {
         let mut commitments = genesis_commitments(&genesis_tx)?;
         let mut roots = vec![(0u64, *ledger.recent_roots().last().expect("genesis root"))];
         {
-            let mut stmt = conn.prepare("SELECT height, id, prev, body FROM blocks WHERE height > 0 ORDER BY height")?;
+            let mut stmt = conn.prepare(
+                "SELECT height, id, prev, body FROM blocks WHERE height > 0 ORDER BY height",
+            )?;
             let mut rows = stmt.query([])?;
             while let Some(row) = rows.next()? {
                 let height: u64 = row.get(0)?;
                 let id: Vec<u8> = row.get(1)?;
                 let prev: Vec<u8> = row.get(2)?;
-                let block = Block::decode(&row.get::<_, Vec<u8>>(3)?).ok_or(StoreError::Corrupt("block body"))?;
+                let block = Block::decode(&row.get::<_, Vec<u8>>(3)?)
+                    .ok_or(StoreError::Corrupt("block body"))?;
                 if block.height != height || block.prev[..] != prev[..] {
                     return Err(StoreError::Corrupt("block header columns"));
                 }
                 let v = ledger.validate_block(&block, proofs).map_err(|e| match e {
-                    LedgerError::WrongParent | LedgerError::WrongHeight => StoreError::Corrupt("block chain"),
+                    LedgerError::WrongParent | LedgerError::WrongHeight => {
+                        StoreError::Corrupt("block chain")
+                    }
                     other => StoreError::Ledger(other),
                 })?;
                 if v.id[..] != id[..] {
@@ -117,19 +129,34 @@ impl Store {
         let stored_nfs: Vec<Vec<u8>> = column(&conn, "SELECT nf FROM nullifiers ORDER BY nf")?;
         let mut expected_nfs: Vec<[u8; 32]> = ledger_nullifiers(&ledger);
         expected_nfs.sort();
-        if stored_nfs.len() != expected_nfs.len() || stored_nfs.iter().zip(&expected_nfs).any(|(a, b)| a[..] != b[..]) {
+        if stored_nfs.len() != expected_nfs.len()
+            || stored_nfs
+                .iter()
+                .zip(&expected_nfs)
+                .any(|(a, b)| a[..] != b[..])
+        {
             return Err(StoreError::Corrupt("nullifier table"));
         }
-        let stored_cmx: Vec<Vec<u8>> = column(&conn, "SELECT cmx FROM commitments ORDER BY position")?;
-        let positions: Vec<i64> = column(&conn, "SELECT position FROM commitments ORDER BY position")?;
+        let stored_cmx: Vec<Vec<u8>> =
+            column(&conn, "SELECT cmx FROM commitments ORDER BY position")?;
+        let positions: Vec<i64> =
+            column(&conn, "SELECT position FROM commitments ORDER BY position")?;
         if stored_cmx.len() != commitments.len()
             || positions.iter().enumerate().any(|(i, p)| *p != i as i64)
-            || stored_cmx.iter().zip(&commitments).any(|(a, b)| a[..] != b[..])
+            || stored_cmx
+                .iter()
+                .zip(&commitments)
+                .any(|(a, b)| a[..] != b[..])
         {
             return Err(StoreError::Corrupt("commitment table"));
         }
         let stored_roots: Vec<Vec<u8>> = column(&conn, "SELECT root FROM roots ORDER BY height")?;
-        if stored_roots.len() != roots.len() || stored_roots.iter().zip(&roots).any(|(a, (_, b))| a[..] != b[..]) {
+        if stored_roots.len() != roots.len()
+            || stored_roots
+                .iter()
+                .zip(&roots)
+                .any(|(a, (_, b))| a[..] != b[..])
+        {
             return Err(StoreError::Corrupt("root table"));
         }
         if meta(&conn, "tip")? != ledger.tip()
@@ -138,7 +165,11 @@ impl Store {
         {
             return Err(StoreError::Corrupt("tip metadata"));
         }
-        Ok(Store { conn, ledger, fault: None })
+        Ok(Store {
+            conn,
+            ledger,
+            fault: None,
+        })
     }
 
     pub fn ledger(&self) -> &Ledger {
@@ -149,9 +180,14 @@ impl Store {
     pub fn block(&self, height: u64) -> Result<Option<Block>, StoreError> {
         let body: Option<Vec<u8>> = self
             .conn
-            .query_row("SELECT body FROM blocks WHERE height = ?1", [height as i64], |r| r.get(0))
+            .query_row(
+                "SELECT body FROM blocks WHERE height = ?1",
+                [height as i64],
+                |r| r.get(0),
+            )
             .optional()?;
-        body.map(|b| Block::decode(&b).ok_or(StoreError::Corrupt("block body"))).transpose()
+        body.map(|b| Block::decode(&b).ok_or(StoreError::Corrupt("block body")))
+            .transpose()
     }
 
     /// The genesis envelope this store was created with.
@@ -171,13 +207,24 @@ impl Store {
         let tx = self.conn.transaction()?;
         tx.execute(
             "INSERT INTO blocks (height, id, prev, body) VALUES (?1, ?2, ?3, ?4)",
-            params![v.height as i64, &v.id[..], &v.block.prev[..], block.encode()],
+            params![
+                v.height as i64,
+                &v.id[..],
+                &v.block.prev[..],
+                block.encode()
+            ],
         )?;
         write_effects(&tx, &v, first)?;
         tx.execute("UPDATE meta SET value = ?1 WHERE key = 'tip'", [&v.id[..]])?;
-        tx.execute("UPDATE meta SET value = ?1 WHERE key = 'height'", [&v.height.to_le_bytes()[..]])?;
+        tx.execute(
+            "UPDATE meta SET value = ?1 WHERE key = 'height'",
+            [&v.height.to_le_bytes()[..]],
+        )?;
         let burned = self.ledger.burned() + v.fees;
-        tx.execute("UPDATE meta SET value = ?1 WHERE key = 'burned'", [&burned.to_le_bytes()[..]])?;
+        tx.execute(
+            "UPDATE meta SET value = ?1 WHERE key = 'burned'",
+            [&burned.to_le_bytes()[..]],
+        )?;
         if self.fault == Some(Fault::BeforeCommit) {
             std::process::abort();
         }
@@ -194,29 +241,51 @@ impl Store {
 fn connect(path: &Path) -> Result<Connection, StoreError> {
     let conn = Connection::open(path)?;
     // Same durability stance as the v1 node: one writer, fsync on commit.
-    conn.execute_batch("PRAGMA locking_mode=EXCLUSIVE; PRAGMA synchronous=FULL; PRAGMA trusted_schema=OFF;")?;
+    conn.execute_batch(
+        "PRAGMA locking_mode=EXCLUSIVE; PRAGMA synchronous=FULL; PRAGMA trusted_schema=OFF;",
+    )?;
     Ok(conn)
 }
 
-fn write_effects(tx: &rusqlite::Transaction<'_>, v: &Validated, first_position: u64) -> Result<(), StoreError> {
+fn write_effects(
+    tx: &rusqlite::Transaction<'_>,
+    v: &Validated,
+    first_position: u64,
+) -> Result<(), StoreError> {
     for nf in v.nullifiers() {
         // PRIMARY KEY makes a repeated nullifier a hard SQL error as well.
-        tx.execute("INSERT INTO nullifiers (nf, height) VALUES (?1, ?2)", params![&nf[..], v.height as i64])?;
+        tx.execute(
+            "INSERT INTO nullifiers (nf, height) VALUES (?1, ?2)",
+            params![&nf[..], v.height as i64],
+        )?;
     }
     for (i, cmx) in v.commitments().enumerate() {
         tx.execute(
             "INSERT INTO commitments (position, cmx, height) VALUES (?1, ?2, ?3)",
-            params![(first_position + i as u64) as i64, &cmx[..], v.height as i64],
+            params![
+                (first_position + i as u64) as i64,
+                &cmx[..],
+                v.height as i64
+            ],
         )?;
     }
-    tx.execute("INSERT INTO roots (height, root) VALUES (?1, ?2)", params![v.height as i64, &v.root[..]])?;
+    tx.execute(
+        "INSERT INTO roots (height, root) VALUES (?1, ?2)",
+        params![v.height as i64, &v.root[..]],
+    )?;
     Ok(())
 }
 
 fn write_tip(tx: &rusqlite::Transaction<'_>, ledger: &Ledger) -> Result<(), StoreError> {
     tx.execute("INSERT INTO meta VALUES ('tip', ?1)", [&ledger.tip()[..]])?;
-    tx.execute("INSERT INTO meta VALUES ('height', ?1)", [&ledger.height().to_le_bytes()[..]])?;
-    tx.execute("INSERT INTO meta VALUES ('burned', ?1)", [&ledger.burned().to_le_bytes()[..]])?;
+    tx.execute(
+        "INSERT INTO meta VALUES ('height', ?1)",
+        [&ledger.height().to_le_bytes()[..]],
+    )?;
+    tx.execute(
+        "INSERT INTO meta VALUES ('burned', ?1)",
+        [&ledger.burned().to_le_bytes()[..]],
+    )?;
     Ok(())
 }
 
@@ -225,7 +294,11 @@ fn ledger_genesis_effects(ledger: &Ledger, genesis_tx: &[u8]) -> Result<Validate
     Ok(Validated {
         height: 0,
         id: ledger.tip(),
-        block: Block { height: 0, prev: [0; 32], txs: vec![genesis_tx.to_vec()] },
+        block: Block {
+            height: 0,
+            prev: [0; 32],
+            txs: vec![genesis_tx.to_vec()],
+        },
         envs: vec![env],
         fees: 0,
         root: *ledger.recent_roots().last().expect("genesis root"),
@@ -234,7 +307,12 @@ fn ledger_genesis_effects(ledger: &Ledger, genesis_tx: &[u8]) -> Result<Validate
 
 fn genesis_commitments(genesis_tx: &[u8]) -> Result<Vec<[u8; 32]>, StoreError> {
     let env = crate::Envelope::decode(genesis_tx).map_err(LedgerError::from)?;
-    Ok(env.bundle.actions().iter().map(|a| a.cmx().to_bytes()).collect())
+    Ok(env
+        .bundle
+        .actions()
+        .iter()
+        .map(|a| a.cmx().to_bytes())
+        .collect())
 }
 
 fn ledger_nullifiers(ledger: &Ledger) -> Vec<[u8; 32]> {

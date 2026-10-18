@@ -1,26 +1,25 @@
-# orvexa-shielded — прототип правил приватной v2
+# orvexa-shielded — приватная тестовая сеть ORVEXA v2
 
-Изолированный прототип этапов P2/P3 ([план тестов](../../docs/PRIVACY_TEST_PLAN.md)).
-Здесь проверяются правила из [спецификации v2](../../docs/PRIVATE_V2_SPEC.md):
-канонический конверт, sighash и txid, проверка без состояния, а также модель
-реестра. Модель хранит дерево commitments, окно anchors, nullifiers
-и сожжённые комиссии, применяет блок атомарно и сохраняет его в SQLite одной
-транзакцией.
+Правила [спецификации v2](../../docs/PRIVATE_V2_SPEC.md): канонический
+конверт, sighash и txid, проверка без состояния, реестр (дерево commitments,
+окно anchors, nullifiers, сожжённые комиссии) с атомарной записью в SQLite,
+кошелёк с seed-фразой, квитанции и ключи просмотра, локальный узел с API и
+обозревателем, а также сервис для ORVEXA Desktop (`src/desktop.rs`).
 
-Это не часть workspace v1: свой `Cargo.toml` с пустым `[workspace]` и свой
-`Cargo.lock`. Здесь есть локальный тестовый узел v2 с API и обозревателем
-(производитель блоков или ведомый узел), но нет P2P v1 и консенсуса из нескольких валидаторов. Вся криптография — upstream `orchard = "=0.16.0"`
+Крейт входит в workspace, но не зависит от протокола v1 и не меняет его:
+v1-узел (`orvexa-node`) от него не зависит, а Desktop подключает его как
+отдельную тестовую сеть. Нет P2P v1 и консенсуса из нескольких валидаторов.
+Вся криптография — upstream `orchard = "=0.16.0"`
 (Ironwood v3, `PostNu6_3`).
 
 ```bash
-cd research/orvexa-shielded
-cargo test --locked      # 47 тестов с настоящими доказательствами, ≈ 75 с на Apple M4
+cargo test -p orvexa-shielded --locked      # 49 тестов с настоящими доказательствами, ≈ 90 с на Apple M4
 ```
 
 Локальная тестовая сеть вручную:
 
 ```bash
-cargo build --release --locked
+cargo build --release --locked -p orvexa-shielded
 # адрес получателя всей тестовой эмиссии — 43 байта raw Orchard address в hex
 ./target/release/orvexa-v2-node genesis --to <address-hex> --out genesis.bin
 ./target/release/orvexa-v2-node run --data-dir v2-producer --genesis genesis.bin --produce-every-ms 2000
@@ -36,6 +35,8 @@ cargo build --release --locked
 - `src/disclosure.rs` — квитанция одного платежа, ключи просмотра (FVK/IVK), согласие на публичный платёж.
 - `src/seed_file.rs` — зашифрованный файл seed (Argon2id + XChaCha20-Poly1305), атомарная запись.
 - `src/node.rs`, `src/api.rs`, `src/explorer.html`, `src/bin/orvexa-v2-node.rs` — узел, JSON-API, страница обозревателя, CLI.
+- `src/desktop.rs` — сервис для ORVEXA Desktop: кошельки v2, локальная сеть, токен сессии, автоблокировка.
+- `src/address.rs` — адреса bech32m `ovxt1…`.
 - `src/client.rs` — клиент API для кошелька: скан блоков, отправка, поиск по txid.
 - `src/wallet.rs` — тестовый кошелёк (скан, witness, перевод) и сборщик
   произвольных bundle для атак.
@@ -43,4 +44,5 @@ cargo build --release --locked
 - `tests/seed_wallet.rs` — P4: векторы BIP39, diversified-адреса, восстановление и пересканирование, файл, секреты, pending.
 - `tests/disclosure.rs` — проверка и подделка квитанций, охват ключей просмотра, публичный платёж.
 - `tests/acceptance.rs` — этап 7 на настоящих процессах: A → B → C и обратно, перезапуск, восстановление, приватность API и логов.
+- `tests/desktop_service.rs` — сервис Desktop через его HTTP-маршруты.
 - `tests/storage.rs` — перезапуск, аварии процесса до и после COMMIT, подделка базы.

@@ -32,14 +32,26 @@ struct Net {
 }
 
 fn net_with(params: Params) -> Net {
-    let (mut a, b, c) = (Wallet::from_seed(1), Wallet::from_seed(2), Wallet::from_seed(3));
+    let (mut a, b, c) = (
+        Wallet::from_seed(1),
+        Wallet::from_seed(2),
+        Wallet::from_seed(3),
+    );
     let split = [600_000, 300_000, 100_000];
     let recipients: Vec<(Address, u64)> = split.iter().map(|v| (a.address, *v)).collect();
     let genesis = build_genesis(&params, &recipients);
     let ledger = Ledger::from_genesis(params.clone(), &genesis).expect("genesis accepted");
     a.scan(0, &[Envelope::decode(&genesis).unwrap()]);
     assert_eq!(a.balance(), SUPPLY);
-    Net { params, genesis, ledger, blocks: Vec::new(), a, b, c }
+    Net {
+        params,
+        genesis,
+        ledger,
+        blocks: Vec::new(),
+        a,
+        b,
+        c,
+    }
 }
 
 fn net() -> Net {
@@ -48,7 +60,11 @@ fn net() -> Net {
 
 impl Net {
     fn block(&self, txs: Vec<Vec<u8>>) -> Block {
-        Block { height: self.ledger.height() + 1, prev: self.ledger.tip(), txs }
+        Block {
+            height: self.ledger.height() + 1,
+            prev: self.ledger.tip(),
+            txs,
+        }
     }
 
     /// Applies a block; on success every wallet scans it.
@@ -56,7 +72,11 @@ impl Net {
         let block = self.block(txs);
         let first_leaf = self.ledger.leaf_count();
         self.ledger.apply_block(&block)?;
-        let envs: Vec<_> = block.txs.iter().map(|t| Envelope::decode(t).unwrap()).collect();
+        let envs: Vec<_> = block
+            .txs
+            .iter()
+            .map(|t| Envelope::decode(t).unwrap())
+            .collect();
         for w in [&mut self.a, &mut self.b, &mut self.c] {
             w.scan(first_leaf, &envs);
         }
@@ -68,29 +88,50 @@ impl Net {
     fn rejects(&mut self, txs: Vec<Vec<u8>>, expected: LedgerError) {
         let before = self.ledger.state_digest();
         assert_eq!(self.apply(txs), Err(expected));
-        assert_eq!(self.ledger.state_digest(), before, "rejected block changed state");
+        assert_eq!(
+            self.ledger.state_digest(),
+            before,
+            "rejected block changed state"
+        );
     }
 
     fn rejects_any(&mut self, txs: Vec<Vec<u8>>) -> LedgerError {
         let before = self.ledger.state_digest();
         let err = self.apply(txs).expect_err("block must be rejected");
-        assert_eq!(self.ledger.state_digest(), before, "rejected block changed state");
+        assert_eq!(
+            self.ledger.state_digest(),
+            before,
+            "rejected block changed state"
+        );
         err
     }
 
     fn pay(&self, from: &Wallet, to: Address, amount: u64) -> Vec<u8> {
-        from.transfer(&self.ledger, to, amount, 10, 20).unwrap().encode()
+        from.transfer(&self.ledger, to, amount, 10, 20)
+            .unwrap()
+            .encode()
     }
 
     fn conserved(&self) {
         let held = self.a.balance() + self.b.balance() + self.c.balance();
-        assert_eq!(held + self.ledger.burned(), SUPPLY, "value created or destroyed");
-        assert_eq!(self.ledger.remaining_supply(), SUPPLY - self.ledger.burned());
+        assert_eq!(
+            held + self.ledger.burned(),
+            SUPPLY,
+            "value created or destroyed"
+        );
+        assert_eq!(
+            self.ledger.remaining_supply(),
+            SUPPLY - self.ledger.burned()
+        );
     }
 
     /// An unspent note of exactly `value` (the builder shuffles output order).
     fn note(&self, w: &Wallet, value: u64) -> (orchard::Note, MerklePath) {
-        let owned = w.notes.iter().find(|o| !o.spent && o.note.value().inner() == value).expect("note with value");
+        let owned = w
+            .notes
+            .iter()
+            .find(|o| !o.spent && o.note.value().inner() == value)
+            .expect("note with value");
         (owned.note, self.ledger.witness(owned.position).unwrap())
     }
 
@@ -137,7 +178,11 @@ fn trailer(n: usize) -> usize {
 fn p2_01_valid_transfer_scan_and_conservation() {
     let mut n = net();
     let tx = n.pay(&n.a, n.b.address, 250_000);
-    assert_eq!(Envelope::decode(&tx).unwrap().encode(), tx, "canonical round trip");
+    assert_eq!(
+        Envelope::decode(&tx).unwrap().encode(),
+        tx,
+        "canonical round trip"
+    );
     n.apply(vec![tx]).unwrap();
     assert_eq!(n.b.balance(), 250_000);
     assert_eq!(n.a.balance(), SUPPLY - 250_000 - 10);
@@ -152,8 +197,14 @@ fn p2_02_tampered_or_truncated_proof() {
     let tx = n.pay(&n.a, n.b.address, 1_000);
     let actions = Envelope::decode(&tx).unwrap().bundle.actions().len();
     let proof_at = trailer(actions) + 1 + 8 + 32;
-    n.rejects(vec![flip(tx.clone(), proof_at + 100)], LedgerError::Authorization);
-    n.rejects(vec![tx[..tx.len() - 1].to_vec()], LedgerError::Envelope(EnvelopeError::Truncated));
+    n.rejects(
+        vec![flip(tx.clone(), proof_at + 100)],
+        LedgerError::Authorization,
+    );
+    n.rejects(
+        vec![tx[..tx.len() - 1].to_vec()],
+        LedgerError::Envelope(EnvelopeError::Truncated),
+    );
     n.apply(vec![tx]).unwrap();
 }
 
@@ -163,7 +214,10 @@ fn p2_03_trailing_and_oversized_bytes() {
     let tx = n.pay(&n.a, n.b.address, 1_000);
     let mut extra = tx.clone();
     extra.push(0);
-    n.rejects(vec![extra], LedgerError::Envelope(EnvelopeError::TrailingBytes));
+    n.rejects(
+        vec![extra],
+        LedgerError::Envelope(EnvelopeError::TrailingBytes),
+    );
     let huge = vec![0u8; envelope::encoded_len(envelope::MAX_ACTIONS) + 1];
     n.rejects(vec![huge], LedgerError::Envelope(EnvelopeError::Oversized));
 }
@@ -174,7 +228,13 @@ fn p2_04_mutated_action_fields_and_anchor() {
     let tx = n.pay(&n.a, n.b.address, 1_000);
     let actions = Envelope::decode(&tx).unwrap().bundle.actions().len();
     // cv_net, nullifier, rk, cmx of action 0, then the anchor.
-    for at in [HEADER, HEADER + 32, HEADER + 64, HEADER + 96, trailer(actions) + 9] {
+    for at in [
+        HEADER,
+        HEADER + 32,
+        HEADER + 64,
+        HEADER + 96,
+        trailer(actions) + 9,
+    ] {
         n.rejects_any(vec![flip(tx.clone(), at)]);
     }
     n.apply(vec![tx]).unwrap();
@@ -185,9 +245,15 @@ fn p2_05_spend_auth_and_binding_signatures() {
     let mut n = net();
     let tx = n.pay(&n.a, n.b.address, 1_000);
     let spend_sig = HEADER + 32 * 5 + ENC_CIPHERTEXT_SIZE + 80;
-    n.rejects(vec![flip(tx.clone(), spend_sig)], LedgerError::Authorization);
+    n.rejects(
+        vec![flip(tx.clone(), spend_sig)],
+        LedgerError::Authorization,
+    );
     let binding_sig = tx.len() - 64;
-    n.rejects(vec![flip(tx.clone(), binding_sig + 1)], LedgerError::Authorization);
+    n.rejects(
+        vec![flip(tx.clone(), binding_sig + 1)],
+        LedgerError::Authorization,
+    );
 }
 
 #[test]
@@ -195,14 +261,26 @@ fn p2_06_context_fields_are_signed() {
     let mut n = net();
     let tx = n.pay(&n.a, n.b.address, 1_000);
     // version, suite, chain_id, fee, expiry
-    n.rejects(vec![flip(tx.clone(), 4)], LedgerError::Envelope(EnvelopeError::UnsupportedVersion));
-    n.rejects(vec![flip(tx.clone(), 5)], LedgerError::Envelope(EnvelopeError::UnsupportedSuite));
+    n.rejects(
+        vec![flip(tx.clone(), 4)],
+        LedgerError::Envelope(EnvelopeError::UnsupportedVersion),
+    );
+    n.rejects(
+        vec![flip(tx.clone(), 5)],
+        LedgerError::Envelope(EnvelopeError::UnsupportedSuite),
+    );
     n.rejects(vec![flip(tx.clone(), 6)], LedgerError::WrongChain);
     n.rejects(vec![flip(tx.clone(), 38)], LedgerError::ValueBalanceNotFee);
     n.rejects(vec![flip(tx.clone(), 46)], LedgerError::Authorization);
     // Encrypted note, out ciphertext and ephemeral key of action 0.
-    n.rejects(vec![flip(tx.clone(), HEADER + 32 * 5 + 7)], LedgerError::Authorization);
-    n.rejects(vec![flip(tx.clone(), HEADER + 32 * 5 + ENC_CIPHERTEXT_SIZE + 3)], LedgerError::Authorization);
+    n.rejects(
+        vec![flip(tx.clone(), HEADER + 32 * 5 + 7)],
+        LedgerError::Authorization,
+    );
+    n.rejects(
+        vec![flip(tx.clone(), HEADER + 32 * 5 + ENC_CIPHERTEXT_SIZE + 3)],
+        LedgerError::Authorization,
+    );
     n.rejects_any(vec![flip(tx.clone(), HEADER + 128)]);
     n.apply(vec![tx]).unwrap();
 }
@@ -224,7 +302,10 @@ fn p2_07_mint_flags_and_reserved_bits_rejected() {
     let actions = Envelope::decode(&tx).unwrap().bundle.actions().len();
     let mut reserved = tx.clone();
     reserved[trailer(actions)] |= 0x80;
-    n.rejects(vec![reserved], LedgerError::Envelope(EnvelopeError::UnrepresentableFlags));
+    n.rejects(
+        vec![reserved],
+        LedgerError::Envelope(EnvelopeError::UnrepresentableFlags),
+    );
 }
 
 #[test]
@@ -236,7 +317,10 @@ fn p2_08_action_count_bounds() {
         bad[HEADER - 1] = count;
         n.rejects(vec![bad], LedgerError::Envelope(EnvelopeError::ActionCount));
     }
-    n.rejects(vec![Vec::new()], LedgerError::Envelope(EnvelopeError::Truncated));
+    n.rejects(
+        vec![Vec::new()],
+        LedgerError::Envelope(EnvelopeError::Truncated),
+    );
 }
 
 #[test]
@@ -249,13 +333,19 @@ fn p2_10_12_value_balance_must_equal_fee() {
     let mut raw = n.raw(&n.a, &key);
     raw.spends = vec![(n.a.fvk().clone(), note, path.clone())];
     raw.outputs = vec![(None, n.c.address, 150_000)];
-    n.rejects(vec![build_envelope(raw).unwrap().encode()], LedgerError::ValueBalanceNotFee);
+    n.rejects(
+        vec![build_envelope(raw).unwrap().encode()],
+        LedgerError::ValueBalanceNotFee,
+    );
 
     // Declared fee 10, but 20 actually leaves the pool.
     let mut raw = n.raw(&n.a, &key);
     raw.spends = vec![(n.a.fvk().clone(), note, path.clone())];
     raw.outputs = vec![(None, n.c.address, 100_000 - 20)];
-    n.rejects(vec![build_envelope(raw).unwrap().encode()], LedgerError::ValueBalanceNotFee);
+    n.rejects(
+        vec![build_envelope(raw).unwrap().encode()],
+        LedgerError::ValueBalanceNotFee,
+    );
 
     // u64::MAX fee cannot be a value balance.
     let mut huge = n.pay(&n.a, n.b.address, 1_000);
@@ -272,7 +362,10 @@ fn p2_11_zero_fee_rejected() {
     raw.fee = 0;
     raw.spends = vec![(n.a.fvk().clone(), note, path)];
     raw.outputs = vec![(None, n.b.address, 100_000)];
-    n.rejects(vec![build_envelope(raw).unwrap().encode()], LedgerError::FeeBelowMinimum);
+    n.rejects(
+        vec![build_envelope(raw).unwrap().encode()],
+        LedgerError::FeeBelowMinimum,
+    );
 }
 
 #[test]
@@ -294,9 +387,15 @@ fn p2_15_txid_commits_to_every_byte() {
 #[test]
 fn p3_01_double_spend_in_block_and_across_blocks() {
     let mut n = net();
-    let (to_b, to_c) = (n.spend_note(100_000, n.b.address), n.spend_note(100_000, n.c.address));
+    let (to_b, to_c) = (
+        n.spend_note(100_000, n.b.address),
+        n.spend_note(100_000, n.c.address),
+    );
     assert_ne!(envelope::txid_of(&to_b), envelope::txid_of(&to_c));
-    n.rejects(vec![to_b.clone(), to_c.clone()], LedgerError::DuplicateNullifier);
+    n.rejects(
+        vec![to_b.clone(), to_c.clone()],
+        LedgerError::DuplicateNullifier,
+    );
     n.apply(vec![to_b]).unwrap();
     n.rejects(vec![to_c], LedgerError::NullifierAlreadySpent);
     n.conserved();
@@ -308,7 +407,10 @@ fn p3_02_same_note_twice_inside_one_bundle() {
     let key = [n.a.spend_key()];
     let (note, path) = n.note(&n.a, 100_000);
     let mut raw = n.raw(&n.a, &key);
-    raw.spends = vec![(n.a.fvk().clone(), note, path.clone()), (n.a.fvk().clone(), note, path)];
+    raw.spends = vec![
+        (n.a.fvk().clone(), note, path.clone()),
+        (n.a.fvk().clone(), note, path),
+    ];
     raw.outputs = vec![(None, n.c.address, 200_000 - 10)];
     // The library proves and signs this; only the ledger stops it.
     let tx = build_envelope(raw).unwrap().encode();
@@ -326,8 +428,15 @@ fn p3_03_restart_replay_keeps_nullifiers() {
     let replayed = Ledger::replay(n.params.clone(), &n.genesis, &n.blocks).unwrap();
     assert_eq!(replayed.state_digest(), n.ledger.state_digest());
     n.ledger = replayed;
-    let again = Block { height: n.ledger.height() + 1, prev: n.ledger.tip(), txs: vec![second] };
-    assert_eq!(n.ledger.apply_block(&again), Err(LedgerError::NullifierAlreadySpent));
+    let again = Block {
+        height: n.ledger.height() + 1,
+        prev: n.ledger.tip(),
+        txs: vec![second],
+    };
+    assert_eq!(
+        n.ledger.apply_block(&again),
+        Err(LedgerError::NullifierAlreadySpent)
+    );
 }
 
 #[test]
@@ -342,14 +451,22 @@ fn p3_04_proof_against_attacker_tree_is_rejected() {
     raw.outputs = vec![(None, n.c.address, 500_000)];
     let private = build_envelope(raw).unwrap();
     let action = private.bundle.actions().first();
-    let ivk = orchard::keys::PreparedIncomingViewingKey::new(&n.c.fvk().to_ivk(orchard::keys::Scope::External));
-    let (note, _, _) = try_note_decryption(&IronwoodDomain::for_action(action), &ivk, action).unwrap();
+    let ivk = orchard::keys::PreparedIncomingViewingKey::new(
+        &n.c.fvk().to_ivk(orchard::keys::Scope::External),
+    );
+    let (note, _, _) =
+        try_note_decryption(&IronwoodDomain::for_action(action), &ivk, action).unwrap();
     let mut tree: ShardTree<MemoryShardStore<MerkleHashOrchard, u32>, 32, 16> =
         ShardTree::new(MemoryShardStore::empty(), 10);
-    tree.append(MerkleHashOrchard::from_cmx(action.cmx()), Retention::Marked).unwrap();
+    tree.append(MerkleHashOrchard::from_cmx(action.cmx()), Retention::Marked)
+        .unwrap();
     tree.checkpoint(0).unwrap();
     let root = tree.root_at_checkpoint_id(&0).unwrap().unwrap();
-    let path: MerklePath = tree.witness_at_checkpoint_id(0.into(), &0).unwrap().unwrap().into();
+    let path: MerklePath = tree
+        .witness_at_checkpoint_id(0.into(), &0)
+        .unwrap()
+        .unwrap()
+        .into();
 
     let key = [n.c.spend_key()];
     let mut raw = n.raw(&n.c, &key);
@@ -363,7 +480,10 @@ fn p3_04_proof_against_attacker_tree_is_rejected() {
 
 #[test]
 fn p3_05_stale_anchor_and_cross_chain() {
-    let mut n = net_with(Params { anchor_window: 2, ..Params::test(SUPPLY) });
+    let mut n = net_with(Params {
+        anchor_window: 2,
+        ..Params::test(SUPPLY)
+    });
     let stale = n.spend_note(100_000, n.b.address);
     // Empty blocks keep the same root, so the old anchor stays valid; new
     // commitments in two later blocks push it out of the window.
@@ -372,7 +492,10 @@ fn p3_05_stale_anchor_and_cross_chain() {
     n.apply(vec![n.spend_note(600_000, n.c.address)]).unwrap();
     n.rejects(vec![stale], LedgerError::UnknownAnchor);
 
-    let other = net_with(Params { salt: [8; 32], ..Params::test(SUPPLY) });
+    let other = net_with(Params {
+        salt: [8; 32],
+        ..Params::test(SUPPLY)
+    });
     let foreign = other.pay(&other.a, other.b.address, 1_000);
     n.rejects(vec![foreign], LedgerError::WrongChain);
 }
@@ -380,9 +503,15 @@ fn p3_05_stale_anchor_and_cross_chain() {
 #[test]
 fn p3_06_expiry_window() {
     let mut n = net();
-    let now = n.a.transfer(&n.ledger, n.b.address, 1_000, 10, 0).unwrap().encode();
+    let now =
+        n.a.transfer(&n.ledger, n.b.address, 1_000, 10, 0)
+            .unwrap()
+            .encode();
     n.rejects(vec![now], LedgerError::Expired);
-    let far = n.a.transfer(&n.ledger, n.b.address, 1_000, 10, 5_000).unwrap().encode();
+    let far =
+        n.a.transfer(&n.ledger, n.b.address, 1_000, 10, 5_000)
+            .unwrap()
+            .encode();
     n.rejects(vec![far], LedgerError::ExpiryTooFar);
 }
 
@@ -392,15 +521,27 @@ fn p3_07_genesis_rules() {
     let a = Wallet::from_seed(1);
     // Mints less than the configured supply.
     let short = build_genesis(&params, &[(a.address, SUPPLY - 1)]);
-    assert!(matches!(Ledger::from_genesis(params.clone(), &short), Err(LedgerError::Genesis(_))));
+    assert!(matches!(
+        Ledger::from_genesis(params.clone(), &short),
+        Err(LedgerError::Genesis(_))
+    ));
     // Valid genesis presented to a network with a different config.
     let good = build_genesis(&params, &[(a.address, SUPPLY)]);
-    let other = Params { salt: [9; 32], ..params.clone() };
-    assert_eq!(Ledger::from_genesis(other, &good).err(), Some(LedgerError::WrongChain));
+    let other = Params {
+        salt: [9; 32],
+        ..params.clone()
+    };
+    assert_eq!(
+        Ledger::from_genesis(other, &good).err(),
+        Some(LedgerError::WrongChain)
+    );
     // Same bytes, one changed proof byte.
     let n = Envelope::decode(&good).unwrap().bundle.actions().len();
     let bad = flip(good.clone(), trailer(n) + 41 + 10);
-    assert_eq!(Ledger::from_genesis(params.clone(), &bad).err(), Some(LedgerError::Authorization));
+    assert_eq!(
+        Ledger::from_genesis(params.clone(), &bad).err(),
+        Some(LedgerError::Authorization)
+    );
     assert!(Ledger::from_genesis(params, &good).is_ok());
 }
 
@@ -426,8 +567,17 @@ fn p3_12_block_with_one_bad_tx_applies_nothing() {
 #[test]
 fn p3_round_trip_a_b_c_a_conserves_value() {
     let mut n = net();
-    for (from, to, amount) in [("a", "b", 400_000), ("b", "c", 150_000), ("c", "a", 70_000), ("a", "c", 1)] {
-        let wallet = |name| match name { "a" => &n.a, "b" => &n.b, _ => &n.c };
+    for (from, to, amount) in [
+        ("a", "b", 400_000),
+        ("b", "c", 150_000),
+        ("c", "a", 70_000),
+        ("a", "c", 1),
+    ] {
+        let wallet = |name| match name {
+            "a" => &n.a,
+            "b" => &n.b,
+            _ => &n.c,
+        };
         let tx = n.pay(wallet(from), wallet(to).address, amount);
         n.apply(vec![tx]).unwrap();
         n.conserved();
@@ -440,10 +590,22 @@ fn p3_round_trip_a_b_c_a_conserves_value() {
 #[test]
 fn wallet_refuses_bad_amounts() {
     let n = net();
-    assert_eq!(n.a.transfer(&n.ledger, n.b.address, 0, 10, 20).err(), Some(WalletError::ZeroAmount));
-    assert_eq!(n.a.transfer(&n.ledger, n.b.address, 5, 0, 20).err(), Some(WalletError::FeeBelowMinimum));
-    assert_eq!(n.a.transfer(&n.ledger, n.b.address, u64::MAX, 10, 20).err(), Some(WalletError::Overflow));
-    assert_eq!(n.b.transfer(&n.ledger, n.a.address, 5, 10, 20).err(), Some(WalletError::InsufficientFunds));
+    assert_eq!(
+        n.a.transfer(&n.ledger, n.b.address, 0, 10, 20).err(),
+        Some(WalletError::ZeroAmount)
+    );
+    assert_eq!(
+        n.a.transfer(&n.ledger, n.b.address, 5, 0, 20).err(),
+        Some(WalletError::FeeBelowMinimum)
+    );
+    assert_eq!(
+        n.a.transfer(&n.ledger, n.b.address, u64::MAX, 10, 20).err(),
+        Some(WalletError::Overflow)
+    );
+    assert_eq!(
+        n.b.transfer(&n.ledger, n.a.address, 5, 10, 20).err(),
+        Some(WalletError::InsufficientFunds)
+    );
 }
 
 #[test]
@@ -452,7 +614,14 @@ fn vectors_sizes_and_domains() {
     assert_eq!(envelope::encoded_len(2), HEADER + 2 * 884 + 105 + 7_264);
     assert_eq!(envelope::encoded_len(4), HEADER + 4 * 884 + 105 + 11_808);
     assert_eq!(envelope::encoded_len(8), HEADER + 8 * 884 + 105 + 20_896);
-    assert_eq!([envelope::encoded_len(2), envelope::encoded_len(4), envelope::encoded_len(8)], [9_192, 15_504, 28_128]);
+    assert_eq!(
+        [
+            envelope::encoded_len(2),
+            envelope::encoded_len(4),
+            envelope::encoded_len(8)
+        ],
+        [9_192, 15_504, 28_128]
+    );
     assert_eq!(envelope::SIGHASH_DOMAIN, b"ORVEXA/shielded-sighash/v2");
     assert_eq!(envelope::TXID_DOMAIN, b"ORVEXA/shielded-txid/v2");
 }

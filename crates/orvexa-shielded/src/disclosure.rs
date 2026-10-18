@@ -106,24 +106,48 @@ impl PaymentReceipt {
 
     /// Checks the receipt against the chain. `env` is the transaction as
     /// served by any node; it is bound by its txid, which must be in `ledger`.
-    pub fn verify(&self, ledger: &Ledger, env: &Envelope) -> Result<VerifiedPayment, DisclosureError> {
+    pub fn verify(
+        &self,
+        ledger: &Ledger,
+        env: &Envelope,
+    ) -> Result<VerifiedPayment, DisclosureError> {
         if self.chain_id != ledger.chain_id() || env.chain_id != self.chain_id {
             return Err(DisclosureError::WrongChain);
         }
         if env.txid() != self.txid {
             return Err(DisclosureError::TxMismatch);
         }
-        let height = ledger.tx_height(&self.txid).ok_or(DisclosureError::TxNotInChain)?;
-        let action = env.bundle.actions().iter().nth(self.action as usize).ok_or(DisclosureError::NoSuchAction)?;
-        let recipient = Option::from(Address::from_raw_address_bytes(&self.recipient)).ok_or(DisclosureError::Encoding)?;
+        let height = ledger
+            .tx_height(&self.txid)
+            .ok_or(DisclosureError::TxNotInChain)?;
+        let action = env
+            .bundle
+            .actions()
+            .iter()
+            .nth(self.action as usize)
+            .ok_or(DisclosureError::NoSuchAction)?;
+        let recipient = Option::from(Address::from_raw_address_bytes(&self.recipient))
+            .ok_or(DisclosureError::Encoding)?;
         let rho = action.rho();
-        let rseed = Option::from(RandomSeed::from_bytes(self.rseed, &rho)).ok_or(DisclosureError::CommitmentMismatch)?;
-        let note: Note = Option::from(Note::from_parts(recipient, NoteValue::from_raw(self.value), rho, rseed, NoteVersion::V3))
+        let rseed = Option::from(RandomSeed::from_bytes(self.rseed, &rho))
             .ok_or(DisclosureError::CommitmentMismatch)?;
+        let note: Note = Option::from(Note::from_parts(
+            recipient,
+            NoteValue::from_raw(self.value),
+            rho,
+            rseed,
+            NoteVersion::V3,
+        ))
+        .ok_or(DisclosureError::CommitmentMismatch)?;
         if ExtractedNoteCommitment::from(note.commitment()).to_bytes() != action.cmx().to_bytes() {
             return Err(DisclosureError::CommitmentMismatch);
         }
-        Ok(VerifiedPayment { recipient, value: self.value, height, confirmations: ledger.height() - height + 1 })
+        Ok(VerifiedPayment {
+            recipient,
+            value: self.value,
+            height,
+            confirmations: ledger.height() - height + 1,
+        })
     }
 }
 
@@ -147,12 +171,19 @@ impl ViewingKey {
 
     pub fn decode(text: &str) -> Result<Self, DisclosureError> {
         if text.starts_with(FULL_KEY_PREFIX) {
-            let bytes: [u8; 96] = without_checksum(FULL_KEY_PREFIX, text)?.try_into().map_err(|_| DisclosureError::Encoding)?;
-            FullViewingKey::from_bytes(&bytes).map(ViewingKey::Full).ok_or(DisclosureError::Encoding)
+            let bytes: [u8; 96] = without_checksum(FULL_KEY_PREFIX, text)?
+                .try_into()
+                .map_err(|_| DisclosureError::Encoding)?;
+            FullViewingKey::from_bytes(&bytes)
+                .map(ViewingKey::Full)
+                .ok_or(DisclosureError::Encoding)
         } else {
-            let bytes: [u8; 64] =
-                without_checksum(INCOMING_KEY_PREFIX, text)?.try_into().map_err(|_| DisclosureError::Encoding)?;
-            Option::from(IncomingViewingKey::from_bytes(&bytes)).map(ViewingKey::Incoming).ok_or(DisclosureError::Encoding)
+            let bytes: [u8; 64] = without_checksum(INCOMING_KEY_PREFIX, text)?
+                .try_into()
+                .map_err(|_| DisclosureError::Encoding)?;
+            Option::from(IncomingViewingKey::from_bytes(&bytes))
+                .map(ViewingKey::Incoming)
+                .ok_or(DisclosureError::Encoding)
         }
     }
 
@@ -184,9 +215,14 @@ pub struct PublicConsent {
 
 impl PublicConsent {
     /// What becomes public, for the confirmation screen.
-    pub const REVEALS_RU: [&'static str; 3] = ["адрес получателя", "сумма перевода", "идентификатор транзакции"];
+    pub const REVEALS_RU: [&'static str; 3] = [
+        "адрес получателя",
+        "сумма перевода",
+        "идентификатор транзакции",
+    ];
     /// What stays private even in a public payment.
-    pub const KEEPS_PRIVATE_RU: [&'static str; 3] = ["отправитель", "сдача и остаток", "остальные платежи"];
+    pub const KEEPS_PRIVATE_RU: [&'static str; 3] =
+        ["отправитель", "сдача и остаток", "остальные платежи"];
 }
 
 fn with_checksum(prefix: &str, bytes: &[u8]) -> String {
@@ -195,7 +231,10 @@ fn with_checksum(prefix: &str, bytes: &[u8]) -> String {
 }
 
 fn without_checksum(prefix: &str, text: &str) -> Result<Vec<u8>, DisclosureError> {
-    let body = text.trim().strip_prefix(prefix).ok_or(DisclosureError::Encoding)?;
+    let body = text
+        .trim()
+        .strip_prefix(prefix)
+        .ok_or(DisclosureError::Encoding)?;
     let raw = hex::decode(body).map_err(|_| DisclosureError::Encoding)?;
     if raw.len() < 4 {
         return Err(DisclosureError::Encoding);

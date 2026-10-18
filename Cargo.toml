@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/orvexa-crypto", "crates/orvexa-core", "crates/orvexa-wallet", "crates/orvexa-rpc", "crates/orvexa-node", "crates/orvexa-cli", "crates/orvexa-tests", "crates/orvexa-web-wallet", "crates/orvexa-desktop"]
+members = ["crates/orvexa-crypto", "crates/orvexa-core", "crates/orvexa-wallet", "crates/orvexa-rpc", "crates/orvexa-node", "crates/orvexa-cli", "crates/orvexa-tests", "crates/orvexa-web-wallet", "crates/orvexa-desktop", "crates/orvexa-shielded"]
 resolver = "2"
 
 [workspace.package]
@@ -36,6 +36,37 @@ orvexa-core = { path = "crates/orvexa-core" }
 orvexa-wallet = { path = "crates/orvexa-wallet" }
 orvexa-rpc = { path = "crates/orvexa-rpc" }
 orvexa-node = { path = "crates/orvexa-node" }
+orvexa-shielded = { path = "crates/orvexa-shielded" }
 
 [profile.release]
 overflow-checks = true
+
+# Private v2 (orvexa-shielded): Halo2 proving is ~10x slower unoptimized, so the
+# proof-system crates are optimized even in debug builds and tests. This only
+# changes build speed and runtime of those crates, not behaviour.
+[profile.dev.package.orchard]
+opt-level = 3
+[profile.dev.package.halo2_proofs]
+opt-level = 3
+[profile.dev.package.halo2_gadgets]
+opt-level = 3
+[profile.dev.package.halo2_poseidon]
+opt-level = 3
+[profile.dev.package.pasta_curves]
+opt-level = 3
+[profile.dev.package.sinsemilla]
+opt-level = 3
+[profile.dev.package.reddsa]
+opt-level = 3
+[profile.dev.package.ff]
+opt-level = 3
+[profile.dev.package.group]
+opt-level = 3
+[profile.dev.package.blake2b_simd]
+opt-level = 3
+[profile.dev.package.shardtree]
+opt-level = 3
+[profile.dev.package.incrementalmerkletree]
+opt-level = 3
+[profile.dev.package.orvexa-shielded]
+opt-level = 3

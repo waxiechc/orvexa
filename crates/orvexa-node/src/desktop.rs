@@ -350,6 +350,17 @@ impl Controller {
         }
     }
     pub fn router(self: &Arc<Self>, directory: &Path, origin: &str) -> Result<Router> {
+        self.router_with(directory, origin, Router::new())
+    }
+    /// Same as [`Self::router`], plus `extra` routes (e.g. the separate private
+    /// v2 test network) behind the same loopback Host/Origin guard. v1 routes
+    /// and behaviour are unchanged.
+    pub fn router_with(
+        self: &Arc<Self>,
+        directory: &Path,
+        origin: &str,
+        extra: Router,
+    ) -> Result<Router> {
         let api = Router::new()
             .route("/v1/desktop/status", get(status))
             .route(
@@ -359,7 +370,8 @@ impl Controller {
             .route("/v1/desktop/start", post(start))
             .route("/v1/desktop/stop", post(stop))
             .route("/v1/{*path}", any(proxy))
-            .with_state(self.clone());
+            .with_state(self.clone())
+            .merge(extra);
         crate::web::host(api, directory, origin)
     }
 }

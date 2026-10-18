@@ -565,3 +565,22 @@ label.amount-field { align-items: stretch; color: var(--text-muted); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Private network v2 */
+.private-v2 { display: grid; gap: 20px; }
+.private-v2 > .wallet-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tabbar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.tabbar a { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-muted); font-weight: 500; font-size: 14px; white-space: nowrap; text-decoration: none; }
+.tabbar a:hover { color: var(--text-strong); background: var(--surface-hover); }
+.tabbar a.active { color: var(--midnight-navy); background: var(--ice-white); border-color: var(--ice-white); }
+.phrase-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; counter-reset: none; }
+.phrase-grid li { display: flex; align-items: baseline; gap: 8px; padding: 9px 11px; border-radius: var(--radius-sm); background: var(--surface-raised); border: 1px solid var(--line); font-family: var(--font-mono); font-size: 14px; color: var(--text-strong); user-select: text; }
+.phrase-grid li span { color: var(--text-faint); font-size: 12px; min-width: 18px; text-align: right; }
+.scope-box { display: grid; gap: 8px; padding: 16px 18px; border-radius: var(--radius-md); border: 1px solid var(--borders); background: var(--surface-raised); }
+.scope-box strong { font-size: 14px; color: var(--text-strong); }
+.scope-box ul { margin: 0 0 6px; padding-left: 18px; color: var(--text-muted); font-size: 14px; display: grid; gap: 4px; }
+@media (max-width: 760px) { .phrase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.v2-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.v2-toolbar .wallet-picker { max-width: 320px; padding-left: 14px; }
+.v2-toolbar .wallet-picker select { width: auto; min-width: 180px; max-width: 280px; }
+.private-v2 button.block-row { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

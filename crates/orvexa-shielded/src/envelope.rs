@@ -107,7 +107,10 @@ impl Envelope {
     }
 
     pub fn nullifiers(&self) -> impl Iterator<Item = [u8; 32]> + '_ {
-        self.bundle.actions().iter().map(|a| a.nullifier().to_bytes())
+        self.bundle
+            .actions()
+            .iter()
+            .map(|a| a.nullifier().to_bytes())
     }
 
     pub fn encode(&self) -> Vec<u8> {
@@ -131,7 +134,11 @@ impl Envelope {
             out.extend_from_slice(&note.out_ciphertext);
             out.extend_from_slice(&<[u8; 64]>::from(action.authorization()));
         }
-        out.push(b.flags().to_byte(bundle_version()).expect("validated flags"));
+        out.push(
+            b.flags()
+                .to_byte(bundle_version())
+                .expect("validated flags"),
+        );
         out.extend_from_slice(&b.value_balance().to_le_bytes());
         out.extend_from_slice(&b.anchor().to_bytes());
         out.extend_from_slice(b.authorization().proof().as_ref());
@@ -181,7 +188,11 @@ impl Envelope {
             let enc_ciphertext = NoteBytesData(r.take::<ENC_CIPHERTEXT_SIZE>()?);
             let out_ciphertext = r.take::<80>()?;
             let sig = Signature::<SpendAuth>::from(r.take::<64>()?);
-            let note = TransmittedNoteCiphertext { epk_bytes, enc_ciphertext, out_ciphertext };
+            let note = TransmittedNoteCiphertext {
+                epk_bytes,
+                enc_ciphertext,
+                out_ciphertext,
+            };
             let action = Action::from_parts(nf, rk, cmx, note, cv_net, sig)
                 .map_err(|_| EnvelopeError::InvalidAction)?;
             actions.push(action);
@@ -204,7 +215,12 @@ impl Envelope {
             bundle_version(),
         )
         .map_err(|_| EnvelopeError::NonCanonicalProof)?;
-        Ok(Envelope { chain_id, fee, expiry_height, bundle })
+        Ok(Envelope {
+            chain_id,
+            fee,
+            expiry_height,
+            bundle,
+        })
     }
 }
 

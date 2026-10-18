@@ -1,0 +1,35 @@
+[package]
+name = "orvexa-shielded"
+version.workspace = true
+edition = "2021"
+rust-version.workspace = true
+publish = false
+license.workspace = true
+description = "ORVEXA private v2 test network: ledger rules, storage, seed wallet, disclosure, node and desktop service over orchard 0.16.0 (Ironwood v3). Independent of the transparent v1 protocol."
+
+[dependencies]
+orchard = { version = "=0.16.0", default-features = false, features = ["std", "circuit", "multicore"] }
+zcash_note_encryption = "=0.5.1"
+shardtree = "0.8"
+incrementalmerkletree = "0.9"
+nonempty = { version = "0.11", default-features = false }
+rand = { version = "0.10", features = ["std", "sys_rng"] }
+sha2.workspace = true
+subtle.workspace = true
+rusqlite.workspace = true
+bip0039 = { version = "=0.14.2", default-features = false, features = ["std"] }
+zip32 = { version = "0.3", default-features = false }
+argon2.workspace = true
+chacha20poly1305.workspace = true
+zeroize.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+bech32 = "=0.11.1"
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+reqwest.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

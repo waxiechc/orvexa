@@ -102,6 +102,12 @@ fn run() -> Result<()> {
     let data = args.data_dir.unwrap_or(default_data()?);
     std::fs::create_dir_all(&data)?;
     let control = Controller::open(&data)?;
+    // Per-launch secret for the private v2 wallet API. Only the app window
+    // receives it; any other local process lacks it. Tests may supply one.
+    let session = match std::env::var("ORVEXA_V2_SESSION") {
+        Ok(token) if token.len() >= 32 => token,
+        _ => orvexa_crypto::Hash32(orvexa_crypto::random_bytes()?).to_string(),
+    };
     let web = assets(&data, args.web_dir)?;
     // The embedded node is I/O driven. Do not allocate a worker per CPU core
     // on high-core-count Macs/PCs while the app is idle.
@@ -115,7 +121,10 @@ fn run() -> Result<()> {
             .await
             .context("application port is occupied; use another --listen port")?;
         let origin = format!("http://{}", listener.local_addr()?);
-        let app = control.router(&web, &origin)?;
+        let private = orvexa_shielded::desktop::DesktopV2::open(&data.join("v2"), session.clone())
+            .await
+            .map_err(anyhow::Error::msg)?;
+        let app = control.router_with(&web, &origin, private.router())?;
         let server = tokio::spawn(async move { axum::serve(listener, app).await });
         control.resume().await;
         Ok::<_, anyhow::Error>((origin, server))
@@ -129,7 +138,14 @@ fn run() -> Result<()> {
         })?;
     } else {
         #[cfg(any(windows, target_os = "macos"))]
-        native::window(&origin, &data, args.webview_debug_port, control, runtime)?;
+        native::window(
+            &origin,
+            &data,
+            args.webview_debug_port,
+            &session,
+            control,
+            runtime,
+        )?;
         #[cfg(not(any(windows, target_os = "macos")))]
         anyhow::bail!(
             "native GUI is currently packaged for Windows; use --headless or the node CLI on this OS"
@@ -228,6 +244,7 @@ mod native {
         origin: &str,
         data: &Path,
         debug: Option<u16>,
+        session: &str,
         control: Arc<Controller>,
         runtime: tokio::runtime::Runtime,
     ) -> Result<()> {
@@ -264,6 +281,10 @@ mod native {
             .with_url(format!("{origin}/#/node"))
             .with_background_color((5, 6, 8, 255))
             .with_devtools(false)
+            .with_initialization_script(format!(
+                "Object.defineProperty(window,'__ORVEXA_V2_SESSION',{{value:{},writable:false}});",
+                serde_json::to_string(session)?
+            ))
             .with_navigation_handler(move |url| {
                 url.starts_with(&allowed) || url.starts_with(&allowed_blob)
             });

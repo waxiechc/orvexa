@@ -8,7 +8,10 @@ use crate::ledger::{self, Ledger, Params};
 use orchard::{
     builder::{Builder, BundleType},
     bundle::Flags,
-    keys::{FullViewingKey, OutgoingViewingKey, PreparedIncomingViewingKey, Scope, SpendAuthorizingKey, SpendingKey},
+    keys::{
+        FullViewingKey, OutgoingViewingKey, PreparedIncomingViewingKey, Scope, SpendAuthorizingKey,
+        SpendingKey,
+    },
     note_encryption::IronwoodDomain,
     tree::MerklePath,
     value::NoteValue,
@@ -62,10 +65,17 @@ pub struct RawTx<'a> {
 /// Builds, proves and signs one envelope. Value balance follows from
 /// spends - outputs; the builder does not apply ORVEXA rules, the ledger does.
 pub fn build_envelope(tx: RawTx<'_>) -> Result<Envelope, WalletError> {
-    let mut builder = Builder::new(tx.bundle_type, envelope::bundle_version(), tx.flags, tx.anchor)
-        .map_err(|e| WalletError::Builder(format!("{e:?}")))?;
+    let mut builder = Builder::new(
+        tx.bundle_type,
+        envelope::bundle_version(),
+        tx.flags,
+        tx.anchor,
+    )
+    .map_err(|e| WalletError::Builder(format!("{e:?}")))?;
     for (fvk, note, path) in tx.spends {
-        builder.add_spend(fvk, note, path).map_err(|e| WalletError::Builder(format!("{e:?}")))?;
+        builder
+            .add_spend(fvk, note, path)
+            .map_err(|e| WalletError::Builder(format!("{e:?}")))?;
     }
     for (ovk, to, value) in tx.outputs {
         builder
@@ -83,24 +93,45 @@ pub fn build_envelope(tx: RawTx<'_>) -> Result<Envelope, WalletError> {
     let bundle = proven
         .apply_signatures(keys::os_rng(), sighash, tx.keys)
         .map_err(|e| WalletError::Builder(format!("{e:?}")))?;
-    Ok(Envelope { chain_id: tx.chain_id, fee: tx.fee, expiry_height: tx.expiry_height, bundle })
+    Ok(Envelope {
+        chain_id: tx.chain_id,
+        fee: tx.fee,
+        expiry_height: tx.expiry_height,
+        bundle,
+    })
 }
 
 /// Genesis: one spends-disabled bundle minting exactly `params.supply` to the
 /// given recipients, signed under the chain ID derived from its effects.
 pub fn build_genesis(params: &Params, recipients: &[(Address, u64)]) -> Vec<u8> {
-    let mut builder =
-        Builder::new(BundleType::Coinbase, envelope::bundle_version(), Flags::SPENDS_DISABLED, ledger::empty_anchor())
-            .expect("coinbase flags are valid for ironwood_v3");
+    let mut builder = Builder::new(
+        BundleType::Coinbase,
+        envelope::bundle_version(),
+        Flags::SPENDS_DISABLED,
+        ledger::empty_anchor(),
+    )
+    .expect("coinbase flags are valid for ironwood_v3");
     for (to, value) in recipients {
-        builder.add_output(None, *to, NoteValue::from_raw(*value), [0u8; 512]).expect("outputs enabled");
+        builder
+            .add_output(None, *to, NoteValue::from_raw(*value), [0u8; 512])
+            .expect("outputs enabled");
     }
     let (unauthorized, _) = builder.build::<i64>(&mut keys::os_rng()).unwrap().unwrap();
     let chain_id = ledger::chain_id(params, &unauthorized);
     let sighash = envelope::sighash(&chain_id, 0, 0, &unauthorized);
-    let proven = unauthorized.create_proof(keys::proving_key(), &mut keys::os_rng()).unwrap();
-    let bundle = proven.apply_signatures(keys::os_rng(), sighash, &[]).unwrap();
-    Envelope { chain_id, fee: 0, expiry_height: 0, bundle }.encode()
+    let proven = unauthorized
+        .create_proof(keys::proving_key(), &mut keys::os_rng())
+        .unwrap();
+    let bundle = proven
+        .apply_signatures(keys::os_rng(), sighash, &[])
+        .unwrap();
+    Envelope {
+        chain_id,
+        fee: 0,
+        expiry_height: 0,
+        bundle,
+    }
+    .encode()
 }
 
 impl Wallet {
@@ -109,7 +140,13 @@ impl Wallet {
         let fvk = FullViewingKey::from(&sk);
         let ivk = PreparedIncomingViewingKey::new(&fvk.to_ivk(Scope::External));
         let address = fvk.address_at(0u32, Scope::External);
-        Wallet { sk, fvk, ivk, address, notes: Vec::new() }
+        Wallet {
+            sk,
+            fvk,
+            ivk,
+            address,
+            notes: Vec::new(),
+        }
     }
 
     pub fn fvk(&self) -> &FullViewingKey {
@@ -138,7 +175,12 @@ impl Wallet {
                     try_note_decryption(&IronwoodDomain::for_action(action), &self.ivk, action)
                 {
                     let nullifier = note.nullifier(&self.fvk).to_bytes();
-                    self.notes.push(OwnedNote { note, position, nullifier, spent: false });
+                    self.notes.push(OwnedNote {
+                        note,
+                        position,
+                        nullifier,
+                        spent: false,
+                    });
                 }
                 position += 1;
             }
@@ -147,7 +189,11 @@ impl Wallet {
 
     /// Confirmed balance from own, unspent, non-zero notes.
     pub fn balance(&self) -> u64 {
-        self.notes.iter().filter(|n| !n.spent).map(|n| n.note.value().inner()).sum()
+        self.notes
+            .iter()
+            .filter(|n| !n.spent)
+            .map(|n| n.note.value().inner())
+            .sum()
     }
 
     /// Ordinary transfer with change back to this wallet, anchored at the tip.
@@ -171,12 +217,20 @@ impl Wallet {
         }
         let mut picked = Vec::new();
         let mut total: u64 = 0;
-        for owned in self.notes.iter().filter(|n| !n.spent && n.note.value().inner() > 0) {
+        for owned in self
+            .notes
+            .iter()
+            .filter(|n| !n.spent && n.note.value().inner() > 0)
+        {
             if total >= need {
                 break;
             }
-            let path = ledger.witness(owned.position).ok_or(WalletError::MissingWitness)?;
-            total = total.checked_add(owned.note.value().inner()).ok_or(WalletError::Overflow)?;
+            let path = ledger
+                .witness(owned.position)
+                .ok_or(WalletError::MissingWitness)?;
+            total = total
+                .checked_add(owned.note.value().inner())
+                .ok_or(WalletError::Overflow)?;
             picked.push((self.fvk.clone(), owned.note, path));
         }
         if total < need {
