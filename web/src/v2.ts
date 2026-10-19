@@ -6,7 +6,7 @@ declare global { interface Window { __ORVEXA_V2_SESSION?: string } }
 export const session = () => typeof window.__ORVEXA_V2_SESSION === 'string' ? window.__ORVEXA_V2_SESSION : '';
 
 export type Access = 'spend' | 'view_full' | 'view_incoming';
-export interface NetworkView { exists: boolean; name: string | null; role: 'producer' | 'follower' | null; upstream: string | null; upstream_height: number | null; default_available: boolean; chain_id: string | null; height: number | null; remaining_supply: string | null; mempool: number }
+export interface NetworkView { exists: boolean; name: string | null; role: 'validator' | 'follower' | null; upstream: string | null; upstream_height: number | null; default_available: boolean; chain_id: string | null; height: number | null; remaining_supply: string | null; mempool: number }
 export interface WalletSummary { id: string; name: string; address: string | null; unlocked: boolean; access: Access }
 export interface State { network: NetworkView; wallets: WalletSummary[]; supply: string; default_fee: string; idle_lock_minutes: number }
 export interface Activity { kind: 'received' | 'sent' | 'change'; value: string; height: number; txid: string; action: number }

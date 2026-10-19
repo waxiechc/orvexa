@@ -1,0 +1,21 @@
+[package]
+name = "bft-eval"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Evaluation stand for Malachite (Tendermint BFT in Rust, arc-malachitebft 0.8.1) as the v2 consensus engine, with a deterministic fault simulator. Not part of the workspace."
+
+[workspace]
+
+[dependencies]
+malachitebft-core-consensus = { package = "arc-malachitebft-core-consensus", version = "=0.8.1", default-features = false, features = ["std"] }
+malachitebft-core-types = { package = "arc-malachitebft-core-types", version = "=0.8.1" }
+malachitebft-signing = { package = "arc-malachitebft-signing", version = "=0.8.1" }
+malachitebft-signing-ed25519 = { package = "arc-malachitebft-signing-ed25519", version = "=0.8.1" }
+async-trait = "0.1"
+futures = { version = "0.3", default-features = false, features = ["executor"] }
+sha2 = "0.10"
+
+[profile.dev]
+opt-level = 1

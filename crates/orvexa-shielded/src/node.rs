@@ -1,19 +1,24 @@
 //! Local v2 node: durable state ([`Store`]), mempool, a JSON API on
 //! localhost and one of two roles.
 //!
-//! * Producer: like the v1 authority, it seals the mempool into a block at a
-//!   fixed interval. Every block still passes the full ledger rules.
-//! * Follower: pulls blocks from a producer over HTTP and re-verifies each
-//!   one (proofs included) before storing it; it forwards submitted
-//!   transactions to the producer.
+//! * Validator: runs BFT consensus ([`crate::bft`]) with the other
+//!   validators of the network. A block is stored only with precommits of
+//!   more than 2/3 of them. Transactions are passed on to the other
+//!   validators; a validator that fell behind catches up from them, checking
+//!   every certificate.
+//! * Follower: pulls blocks from a node over HTTP and re-verifies each one
+//!   (commit certificate and proofs) before storing it; it forwards submitted
+//!   transactions to that node.
 //!
 //! Logs carry heights, txids and error codes only.
 
 use crate::api::{
     BlockView, ErrorView, RawView, StatusView, SubmitRequest, SubmitResponse, TxView,
 };
+use crate::bft::codec::NetMsg;
+use crate::bft::engine::{self, EngineConfig, Event, Host};
 use crate::envelope::Envelope;
-use crate::ledger::{Block, LedgerError, Params, ProofCheck};
+use crate::ledger::{Block, Commit, LedgerError, Params, ProofCheck};
 use crate::store::{Store, StoreError};
 use axum::{
     extract::{Path, Query, State},
@@ -33,21 +38,32 @@ const EXPLORER: &str = include_str!("explorer.html");
 /// Largest request body: one maximal envelope in hex plus JSON framing.
 const MAX_BODY: usize = 2 * 64 * 1024 + 1024;
 
-/// The producer's Ed25519 signing key. `Debug` never prints it.
+/// A validator's Ed25519 signing key. `Debug` never prints it.
 #[derive(Clone)]
-pub struct ProducerKey(pub Arc<ed25519_dalek::SigningKey>);
+pub struct ValidatorKey(pub Arc<ed25519_dalek::SigningKey>);
 
-impl std::fmt::Debug for ProducerKey {
+impl std::fmt::Debug for ValidatorKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("ProducerKey(..)")
+        f.write_str("ValidatorKey(..)")
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum Role {
-    Producer { every: Duration, key: ProducerKey },
-    Follower { upstream: String, poll: Duration },
+    Validator {
+        key: ValidatorKey,
+        engine: EngineConfig,
+    },
+    Follower {
+        upstream: String,
+        poll: Duration,
+    },
 }
+
+/// Most transactions a proposer puts in one block.
+const MAX_BLOCK_TXS: usize = 500;
+/// How often a validator asks its peers whether it fell behind.
+const CATCH_UP_EVERY: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Debug)]
 pub struct NodeConfig {
@@ -69,8 +85,10 @@ struct Node {
     store: Store,
     mempool: Vec<Pending>,
     mempool_nullifiers: HashSet<[u8; 32]>,
-    /// Latest height the followed producer reported (followers only).
+    /// Latest height the followed node reported (followers only).
     upstream_height: Option<u64>,
+    /// Inbox of the consensus engine (validators only).
+    engine: Option<engine::Handle>,
 }
 
 type Shared = Arc<Mutex<Node>>;
@@ -108,6 +126,7 @@ pub async fn embed(config: NodeConfig) -> Result<(Router, NodeHandle), String> {
         mempool: Vec::new(),
         mempool_nullifiers: HashSet::new(),
         upstream_height: None,
+        engine: None,
     }));
     let state = AppState {
         node: node.clone(),
@@ -116,18 +135,38 @@ pub async fn embed(config: NodeConfig) -> Result<(Router, NodeHandle), String> {
     };
 
     let task = match config.role.clone() {
-        Role::Producer { every, key } => {
-            let expected = node
-                .lock()
-                .expect("node lock")
-                .store
-                .ledger()
-                .params()
-                .producer;
-            if key.0.verifying_key().to_bytes() != expected {
-                return Err("this producer key does not belong to the network".into());
-            }
-            tokio::spawn(produce_loop(node.clone(), every, key))
+        Role::Validator {
+            key,
+            engine: engine_config,
+        } => {
+            let (params, chain_id) = {
+                let n = node.lock().expect("node lock");
+                (
+                    n.store.ledger().params().clone(),
+                    n.store.ledger().chain_id(),
+                )
+            };
+            let (inbox, events) = std::sync::mpsc::channel();
+            let host = NodeHost {
+                node: node.clone(),
+                http: state.http.clone(),
+                rt: tokio::runtime::Handle::current(),
+            };
+            engine::spawn(
+                host,
+                &params,
+                chain_id,
+                key.0.to_bytes(),
+                engine_config.clone(),
+                &config.data_dir.join("consensus.sqlite"),
+                events,
+            )?;
+            node.lock().expect("node lock").engine = Some(inbox);
+            tokio::spawn(catch_up_loop(
+                node.clone(),
+                state.http.clone(),
+                engine_config.peers,
+            ))
         }
         Role::Follower { upstream, poll } => tokio::spawn(follow_loop(
             node.clone(),
@@ -147,6 +186,13 @@ pub async fn embed(config: NodeConfig) -> Result<(Router, NodeHandle), String> {
         .route("/v2/tx/{txid}", get(tx))
         .route("/v2/tx/{txid}/raw", get(tx_raw))
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY))
+        .merge(
+            Router::new()
+                .route("/v2/consensus", axum::routing::post(consensus))
+                .layer(axum::extract::DefaultBodyLimit::max(
+                    crate::bft::codec::MAX_BODY + 1024,
+                )),
+        )
         .with_state(state);
     Ok((
         api,
@@ -236,31 +282,27 @@ impl NodeHandle {
         Envelope::decode(&bytes).ok().map(|e| (height, e))
     }
 
-    /// Validates and queues a transaction for the next block.
-    /// `"producer"` or `"follower"`.
+    /// `"validator"` or `"follower"`.
     pub fn role(&self) -> &'static str {
-        match self.role {
-            Role::Producer { .. } => "producer",
-            Role::Follower { .. } => "follower",
-        }
+        role_name(&self.role)
     }
 
     /// The node a follower syncs from.
     pub fn upstream(&self) -> Option<&str> {
         match &self.role {
             Role::Follower { upstream, .. } => Some(upstream),
-            Role::Producer { .. } => None,
+            Role::Validator { .. } => None,
         }
     }
 
-    /// Height last reported by the followed producer.
+    /// Height last reported by the followed node.
     pub fn upstream_height(&self) -> Option<u64> {
         self.node.lock().expect("node lock").upstream_height
     }
 
     pub async fn submit(&self, env: &Envelope) -> Result<[u8; 32], Rejection> {
         if let Role::Follower { upstream, .. } = &self.role {
-            // Followers do not seal blocks; the producer must see the transfer.
+            // Followers do not vote on blocks; a validator must see the transfer.
             let request = SubmitRequest {
                 tx: hex::encode(env.encode()),
             };
@@ -299,23 +341,174 @@ impl NodeHandle {
         }
         let node = self.node.clone();
         let bytes = env.encode();
-        tokio::task::spawn_blocking(move || accept(&node, bytes))
+        let result = tokio::task::spawn_blocking(move || accept(&node, bytes))
             .await
             .unwrap_or_else(|_| {
                 Err(Rejection {
                     status: 500,
                     code: "internal".into(),
                 })
-            })
+            })?;
+        announce(&self.node, &self.http, &self.role, &result, &env.encode());
+        Ok(result.0)
     }
 
-    /// Stops the role loop (block production or following).
+    /// Stops the role loop (consensus or following).
     pub fn stop(&self) {
         self.task.abort();
+        if let Some(engine) = self.node.lock().expect("node lock").engine.take() {
+            let _ = engine.send(Event::Stop);
+        }
     }
 }
 
-fn accept(node: &Shared, bytes: Vec<u8>) -> Result<[u8; 32], Rejection> {
+fn role_name(role: &Role) -> &'static str {
+    match role {
+        Role::Validator { .. } => "validator",
+        Role::Follower { .. } => "follower",
+    }
+}
+
+/// A transaction new to this validator's mempool: wake consensus and pass
+/// it on to the other validators, so whoever proposes next includes it.
+fn announce(
+    node: &Shared,
+    http: &reqwest::Client,
+    role: &Role,
+    accepted: &([u8; 32], bool),
+    bytes: &[u8],
+) {
+    let (_, new) = accepted;
+    let Role::Validator { engine, .. } = role else {
+        return;
+    };
+    if !new {
+        return;
+    }
+    if let Some(inbox) = &node.lock().expect("node lock").engine {
+        let _ = inbox.send(Event::Work);
+    }
+    let request = SubmitRequest {
+        tx: hex::encode(bytes),
+    };
+    for peer in &engine.peers {
+        let http = http.clone();
+        let url = format!("{peer}/v2/tx");
+        let request = SubmitRequest {
+            tx: request.tx.clone(),
+        };
+        tokio::spawn(async move {
+            let _ = http
+                .post(url)
+                .json(&request)
+                .timeout(Duration::from_secs(30))
+                .send()
+                .await;
+        });
+    }
+}
+
+/// The engine's view of this node.
+struct NodeHost {
+    node: Shared,
+    http: reqwest::Client,
+    rt: tokio::runtime::Handle,
+}
+
+impl Host for NodeHost {
+    fn tip(&self) -> (u64, [u8; 32]) {
+        let n = self.node.lock().expect("node lock");
+        (n.store.ledger().height(), n.store.ledger().tip())
+    }
+
+    fn has_work(&self) -> bool {
+        !self.node.lock().expect("node lock").mempool.is_empty()
+    }
+
+    /// Mempool transactions still valid on the tip, without conflicts.
+    fn candidates(&self) -> Vec<Vec<u8>> {
+        let n = self.node.lock().expect("node lock");
+        let mut chosen = Vec::new();
+        let mut seen = HashSet::new();
+        for p in &n.mempool {
+            if chosen.len() == MAX_BLOCK_TXS || p.nullifiers.iter().any(|nf| seen.contains(nf)) {
+                continue;
+            }
+            if n.store
+                .ledger()
+                .check_candidates(std::slice::from_ref(&p.bytes), ProofCheck::Skip)
+                .is_ok()
+            {
+                seen.extend(p.nullifiers.iter().copied());
+                chosen.push(p.bytes.clone());
+            }
+        }
+        chosen
+    }
+
+    fn check_body(&self, block: &Block) -> bool {
+        let n = self.node.lock().expect("node lock");
+        let l = n.store.ledger();
+        block.height == l.height() + 1
+            && block.prev == l.tip()
+            && block.txs.len() <= MAX_BLOCK_TXS
+            && l.check_candidates(&block.txs, ProofCheck::Verify).is_ok()
+    }
+
+    fn commit(&self, block: Block) -> Result<(), String> {
+        let mut n = self.node.lock().expect("node lock");
+        n.store.apply_block(&block).map_err(|e| format!("{e:?}"))?;
+        prune_mempool(&mut n, &block);
+        Ok(())
+    }
+
+    fn send(&self, peer: &str, bytes: Vec<u8>) {
+        let http = self.http.clone();
+        let url = format!("{peer}/v2/consensus");
+        self.rt.spawn(async move {
+            let _ = http
+                .post(url)
+                .header(header::CONTENT_TYPE, "application/octet-stream")
+                .body(bytes)
+                .timeout(Duration::from_secs(10))
+                .send()
+                .await;
+        });
+    }
+}
+
+/// Drops included transactions and those the new tip made invalid.
+fn prune_mempool(n: &mut Node, block: &Block) {
+    let included: HashSet<[u8; 32]> = block
+        .txs
+        .iter()
+        .map(|t| crate::envelope::txid_of(t))
+        .collect();
+    let pending = std::mem::take(&mut n.mempool);
+    n.mempool_nullifiers.clear();
+    for p in pending {
+        if included.contains(&p.txid) {
+            continue;
+        }
+        let still_valid = p
+            .nullifiers
+            .iter()
+            .all(|nf| !n.mempool_nullifiers.contains(nf))
+            && n.store
+                .ledger()
+                .check_candidates(std::slice::from_ref(&p.bytes), ProofCheck::Skip)
+                .is_ok();
+        if still_valid {
+            n.mempool_nullifiers.extend(p.nullifiers.iter().copied());
+            n.mempool.push(p);
+        } else {
+            eprintln!("ORVEXA v2 dropped tx {} from mempool", hex::encode(p.txid));
+        }
+    }
+}
+
+/// Returns the txid and whether it is new to the mempool.
+fn accept(node: &Shared, bytes: Vec<u8>) -> Result<([u8; 32], bool), Rejection> {
     let reject = |e: &LedgerError| Rejection {
         status: match e {
             LedgerError::NullifierAlreadySpent | LedgerError::DuplicateNullifier => 409,
@@ -327,7 +520,7 @@ fn accept(node: &Shared, bytes: Vec<u8>) -> Result<[u8; 32], Rejection> {
     let env = Envelope::decode(&bytes).map_err(|e| reject(&LedgerError::Envelope(e)))?;
     let txid = env.txid();
     if n.mempool.iter().any(|p| p.txid == txid) {
-        return Ok(txid);
+        return Ok((txid, false));
     }
     let nullifiers: Vec<[u8; 32]> = env.nullifiers().collect();
     if nullifiers
@@ -350,117 +543,84 @@ fn accept(node: &Shared, bytes: Vec<u8>) -> Result<[u8; 32], Rejection> {
         nullifiers,
     });
     eprintln!("ORVEXA v2 accepted tx {}", hex::encode(txid));
-    Ok(txid)
+    Ok((txid, true))
 }
 
 // ------------------------------------------------------------ roles ----
 
-async fn produce_loop(node: Shared, every: Duration, key: ProducerKey) {
-    let mut tick = tokio::time::interval(every);
+/// Pulls every block `upstream` has above our tip, checking each one in
+/// full (commit certificate and proofs). Returns how many were applied.
+async fn sync_from(node: &Shared, http: &reqwest::Client, upstream: &str) -> usize {
+    let Ok(status) = fetch::<StatusView>(http, &format!("{upstream}/v2/status")).await else {
+        return 0;
+    };
+    let ours = {
+        let mut n = node.lock().expect("node lock");
+        n.upstream_height = Some(status.height);
+        n.store.ledger().chain_id()
+    };
+    if status.chain_id != hex::encode(ours) {
+        eprintln!("ORVEXA v2 {upstream} is a different chain; not syncing from it");
+        return 0;
+    }
+    let mut applied = 0;
     loop {
-        tick.tick().await;
+        let next = node.lock().expect("node lock").store.ledger().height() + 1;
+        if next > status.height {
+            break;
+        }
+        let Ok(raw) = fetch::<RawView>(http, &format!("{upstream}/v2/blocks/{next}/raw")).await
+        else {
+            break;
+        };
+        let Some(block) = hex::decode(&raw.hex).ok().and_then(|b| Block::decode(&b)) else {
+            eprintln!("ORVEXA v2 {upstream} sent an undecodable block {next}");
+            break;
+        };
         let node = node.clone();
-        let key = key.clone();
-        let _ = tokio::task::spawn_blocking(move || produce_once(&node, &key)).await;
-    }
-}
-
-fn produce_once(node: &Shared, key: &ProducerKey) {
-    let mut n = node.lock().expect("node lock");
-    if n.mempool.is_empty() {
-        return;
-    }
-    let pending = std::mem::take(&mut n.mempool);
-    n.mempool_nullifiers.clear();
-    let height = n.store.ledger().height() + 1;
-    let prev = n.store.ledger().tip();
-    // Keep only transactions that are still valid on top of the tip (expiry,
-    // anchors) and do not conflict with one another.
-    let mut chosen: Vec<Pending> = Vec::new();
-    let mut seen = HashSet::new();
-    for p in pending {
-        if p.nullifiers.iter().any(|nf| seen.contains(nf)) {
-            continue;
-        }
-        if n.store
-            .ledger()
-            .check_candidates(std::slice::from_ref(&p.bytes), ProofCheck::Skip)
-            .is_ok()
-        {
-            seen.extend(p.nullifiers.iter().copied());
-            chosen.push(p);
-        } else {
-            eprintln!("ORVEXA v2 dropped tx {} from mempool", hex::encode(p.txid));
+        let result = tokio::task::spawn_blocking(move || {
+            let mut n = node.lock().expect("node lock");
+            let result = n.store.apply_block(&block);
+            if result.is_ok() {
+                prune_mempool(&mut n, &block);
+            }
+            result
+        })
+        .await;
+        match result {
+            Ok(Ok(id)) => {
+                applied += 1;
+                eprintln!("ORVEXA v2 synced block {next} {}", hex::encode(id));
+            }
+            Ok(Err(e)) => {
+                eprintln!("ORVEXA v2 rejected block {next} from {upstream}: {e:?}");
+                break;
+            }
+            Err(_) => break,
         }
     }
-    if chosen.is_empty() {
-        return;
-    }
-    let chain_id = n.store.ledger().chain_id();
-    let txs = chosen.iter().map(|p| p.bytes.clone()).collect();
-    let block = Block::produce(height, prev, txs, &key.0, &chain_id);
-    match n.store.apply_block(&block) {
-        Ok(id) => eprintln!(
-            "ORVEXA v2 produced block {height} {} with {} tx",
-            hex::encode(id),
-            block.txs.len()
-        ),
-        Err(e) => eprintln!("ORVEXA v2 block {height} rejected: {e:?}"),
-    }
+    applied
 }
 
 async fn follow_loop(node: Shared, http: reqwest::Client, upstream: String, poll: Duration) {
     let mut tick = tokio::time::interval(poll);
     loop {
         tick.tick().await;
-        let Ok(status) = fetch::<StatusView>(&http, &format!("{upstream}/v2/status")).await else {
-            continue;
-        };
-        let ours = {
-            let mut n = node.lock().expect("node lock");
-            n.upstream_height = Some(status.height);
-            n.store.ledger().chain_id()
-        };
-        if status.chain_id != hex::encode(ours) {
-            eprintln!("ORVEXA v2 upstream is a different chain; not following");
-            continue;
-        }
-        loop {
-            let next = node.lock().expect("node lock").store.ledger().height() + 1;
-            if next > status.height {
-                break;
-            }
-            let Ok(raw) =
-                fetch::<RawView>(&http, &format!("{upstream}/v2/blocks/{next}/raw")).await
-            else {
-                break;
-            };
-            let Some(block) = hex::decode(&raw.hex).ok().and_then(|b| Block::decode(&b)) else {
-                eprintln!("ORVEXA v2 upstream sent an undecodable block {next}");
-                break;
-            };
-            let node = node.clone();
-            let applied = tokio::task::spawn_blocking(move || {
-                let mut n = node.lock().expect("node lock");
-                let result = n.store.apply_block(&block);
-                if result.is_ok() {
-                    let included: HashSet<[u8; 32]> = block
-                        .txs
-                        .iter()
-                        .map(|t| crate::envelope::txid_of(t))
-                        .collect();
-                    n.mempool.retain(|p| !included.contains(&p.txid));
+        sync_from(&node, &http, &upstream).await;
+    }
+}
+
+/// A validator that was offline or cut off takes decided blocks from its
+/// peers instead of waiting for consensus messages it missed.
+async fn catch_up_loop(node: Shared, http: reqwest::Client, peers: Vec<String>) {
+    let mut tick = tokio::time::interval(CATCH_UP_EVERY);
+    loop {
+        tick.tick().await;
+        for peer in &peers {
+            if sync_from(&node, &http, peer).await > 0 {
+                if let Some(inbox) = &node.lock().expect("node lock").engine {
+                    let _ = inbox.send(Event::LedgerAdvanced);
                 }
-                result
-            })
-            .await;
-            match applied {
-                Ok(Ok(id)) => eprintln!("ORVEXA v2 followed block {next} {}", hex::encode(id)),
-                Ok(Err(e)) => {
-                    eprintln!("ORVEXA v2 rejected upstream block {next}: {e:?}");
-                    break;
-                }
-                Err(_) => break,
             }
         }
     }
@@ -502,10 +662,7 @@ async fn status(State(s): State<AppState>) -> Json<StatusView> {
     Json(StatusView {
         network: "orvexa-v2-test".into(),
         privacy: "shielded (Ironwood v3)".into(),
-        role: match s.role {
-            Role::Producer { .. } => "producer".into(),
-            Role::Follower { .. } => "follower".into(),
-        },
+        role: role_name(&s.role).into(),
         chain_id: hex::encode(l.chain_id()),
         height: l.height(),
         tip: hex::encode(l.tip()),
@@ -520,7 +677,7 @@ fn block_at(n: &Node, height: u64) -> Result<Option<Block>, StoreError> {
         return Ok(Some(Block {
             height: 0,
             prev: [0; 32],
-            signature: [0; 64],
+            commit: Commit::default(),
             txs: vec![n.store.genesis_tx()?],
         }));
     }
@@ -674,7 +831,7 @@ async fn tx_raw(State(s): State<AppState>, Path(txid): Path<String>) -> Response
 
 async fn submit(State(s): State<AppState>, Json(req): Json<SubmitRequest>) -> Response {
     if let Role::Follower { upstream, .. } = &s.role {
-        // Followers do not seal blocks; hand the transaction to the producer.
+        // Followers do not vote on blocks; hand the transaction to a validator.
         let forwarded = s
             .http
             .post(format!("{upstream}/v2/tx"))
@@ -689,21 +846,26 @@ async fn submit(State(s): State<AppState>, Json(req): Json<SubmitRequest>) -> Re
                 let body = r.bytes().await.unwrap_or_default();
                 (status, [(header::CONTENT_TYPE, "application/json")], body).into_response()
             }
-            Err(_) => error(StatusCode::BAD_GATEWAY, "upstream", "producer unreachable"),
+            Err(_) => error(StatusCode::BAD_GATEWAY, "upstream", "node unreachable"),
         };
     }
     let Ok(bytes) = hex::decode(req.tx.trim()) else {
         return error(StatusCode::BAD_REQUEST, "bad_hex", "tx is hex");
     };
     let node = s.node.clone();
+    let raw = bytes.clone();
     match tokio::task::spawn_blocking(move || accept(&node, bytes)).await {
-        Ok(Ok(txid)) => (
-            StatusCode::ACCEPTED,
-            Json(SubmitResponse {
-                txid: hex::encode(txid),
-            }),
-        )
-            .into_response(),
+        Ok(Ok(accepted)) => {
+            announce(&s.node, &s.http, &s.role, &accepted, &raw);
+            let txid = accepted.0;
+            (
+                StatusCode::ACCEPTED,
+                Json(SubmitResponse {
+                    txid: hex::encode(txid),
+                }),
+            )
+                .into_response()
+        }
         Ok(Err(r)) => error(
             StatusCode::from_u16(r.status).unwrap_or(StatusCode::BAD_REQUEST),
             &r.code,
@@ -717,6 +879,28 @@ async fn submit(State(s): State<AppState>, Json(req): Json<SubmitRequest>) -> Re
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal",
             "validation task failed",
+        ),
+    }
+}
+
+/// Consensus messages from other validators (binary, see `bft::codec`).
+async fn consensus(State(s): State<AppState>, body: axum::body::Bytes) -> Response {
+    let Some(msg) = NetMsg::decode(&body) else {
+        return error(
+            StatusCode::BAD_REQUEST,
+            "bad_message",
+            "not a v2 consensus message",
+        );
+    };
+    let n = s.node.lock().expect("node lock");
+    match &n.engine {
+        Some(inbox) if inbox.send(Event::Net(Box::new(msg))).is_ok() => {
+            StatusCode::ACCEPTED.into_response()
+        }
+        _ => error(
+            StatusCode::NOT_FOUND,
+            "not_validator",
+            "this node does not take part in consensus",
         ),
     }
 }

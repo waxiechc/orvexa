@@ -369,7 +369,7 @@ async fn private_v2_inside_the_desktop_app() {
     assert_eq!(status, 409);
 }
 
-/// One computer runs the network (producer, API reachable over HTTP); a new
+/// One computer runs the network (its only validator, API reachable over HTTP); a new
 /// participant imports the network file and joins with one request.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn second_computer_joins_a_published_network() {
@@ -413,7 +413,7 @@ async fn second_computer_joins_a_published_network() {
     .unwrap();
     let b = participant.router();
     let mut forged = profile.clone();
-    forged["producer"] = json!(hex::encode([1u8; 32]));
+    forged["validators"][0]["key"] = json!(hex::encode([1u8; 32]));
     let (status, _) = call(
         &b,
         "POST",
@@ -469,7 +469,7 @@ async fn second_computer_joins_a_published_network() {
         "follower synced the payment"
     );
 
-    // The participant's transfer is forwarded to the producer and mined.
+    // The participant's transfer is forwarded to the validator and decided.
     let alice_address = wallet(&a, &alice).await["address"]
         .as_str()
         .unwrap()
@@ -493,15 +493,43 @@ async fn second_computer_joins_a_published_network() {
     assert_eq!(state["network"]["upstream"], public);
     assert!(state["network"]["upstream_height"].as_u64().is_some());
 
-    // The participant never holds the producer key.
+    // The participant never holds a validator key.
     assert!(!participant_dir
         .path()
         .join("node")
-        .join("producer.key")
+        .join("validator.key")
         .exists());
     assert!(operator_dir
         .path()
         .join("node")
-        .join("producer.key")
+        .join("validator.key")
         .exists());
+}
+
+/// A network file from the one-producer format cannot be used any more: the
+/// app sets it aside with its node data, keeps the wallets and starts without
+/// a network instead of failing to open.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn old_network_format_is_set_aside() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("node")).unwrap();
+    std::fs::write(dir.path().join("node").join("producer.key"), [7u8; 32]).unwrap();
+    std::fs::write(
+        dir.path().join("network.json"),
+        r#"{"format":"orvexa-v2-network","version":1,"name":"old","chain_id":"00","salt":"00","supply":1,"anchor_window":1,"max_expiry_delta":1,"producer":"00","genesis":"00","nodes":[]}"#,
+    )
+    .unwrap();
+    let service = DesktopV2::open_with(dir.path(), TOKEN.into(), Duration::from_millis(150))
+        .await
+        .unwrap();
+    let state = ok(&service.router(), "GET", "/v2/desktop/state", None).await;
+    assert_eq!(state["network"]["exists"], false);
+    assert!(!dir.path().join("network.json").exists());
+    let retired: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name().to_string_lossy().starts_with("retired-"))
+        .collect();
+    assert_eq!(retired.len(), 1);
+    assert!(retired[0].path().join("node").join("producer.key").exists());
 }

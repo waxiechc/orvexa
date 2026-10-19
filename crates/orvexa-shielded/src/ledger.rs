@@ -3,6 +3,13 @@
 //! State: note commitment tree, the roots of the last `anchor_window` blocks,
 //! the set of revealed nullifiers, burned fees. A block either applies in full
 //! or leaves the state untouched: every check runs before the first mutation.
+//!
+//! Every block after genesis carries a commit certificate: precommit
+//! signatures of validators holding more than 2/3 of the voting power for
+//! exactly this block ID at its height. The bytes signed are the precommit
+//! votes of the BFT engine ([`vote_sign_bytes`]), so a certificate the engine
+//! produced verifies here without the engine, and a follower trusts no single
+//! machine.
 
 use crate::envelope::{self, Envelope, EnvelopeError, SUITE_IRONWOOD_V3, VERSION};
 use crate::keys;
@@ -20,7 +27,10 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub const CHAIN_ID_DOMAIN: &[u8] = b"ORVEXA/chain-id/v2";
 pub const BLOCK_DOMAIN: &[u8] = b"ORVEXA/shielded-block/v2";
 pub const STATE_DOMAIN: &[u8] = b"ORVEXA/shielded-state/v2";
-pub const BLOCK_SIG_DOMAIN: &[u8] = b"ORVEXA/shielded-block-sig/v2";
+pub const VOTE_DOMAIN: &[u8] = b"ORVEXA/shielded-vote/v2\n";
+pub const PROPOSAL_DOMAIN: &[u8] = b"ORVEXA/shielded-proposal/v2\n";
+/// Most validators a network may have (keeps certificates and checks bounded).
+pub const MAX_VALIDATORS: usize = 64;
 
 /// Network parameters fixed in the network config before genesis.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -32,34 +42,99 @@ pub struct Params {
     pub anchor_window: u32,
     /// `expiry_height` may be at most this far above the including block.
     pub max_expiry_delta: u64,
-    /// Ed25519 key of the block producer; every block after genesis is signed by it.
-    pub producer: [u8; 32],
+    /// Ed25519 keys of the validators, sorted and distinct, one vote each.
+    /// Part of the chain ID: another set is another chain.
+    pub validators: Vec<[u8; 32]>,
 }
 
 impl Params {
-    /// Test parameters signed by [`test_producer`]. Never for a shared network.
+    /// Test parameters with the single validator [`test_validator`]. Never for a shared network.
     pub fn test(supply: u64) -> Self {
         Params {
             salt: [7; 32],
             supply,
             anchor_window: 100,
             max_expiry_delta: 1_000,
-            producer: test_producer().verifying_key().to_bytes(),
+            validators: vec![test_validator().verifying_key().to_bytes()],
         }
+    }
+
+    /// Sorts and checks the validator set: 1..=MAX_VALIDATORS distinct valid keys.
+    pub fn set_validators(&mut self, mut keys: Vec<[u8; 32]>) -> Result<(), &'static str> {
+        keys.sort();
+        keys.dedup();
+        self.validators = keys;
+        self.check_validators()
+    }
+
+    pub fn check_validators(&self) -> Result<(), &'static str> {
+        let v = &self.validators;
+        if v.is_empty() || v.len() > MAX_VALIDATORS {
+            return Err("a network needs 1 to 64 validators");
+        }
+        if v.windows(2).any(|w| w[0] >= w[1]) {
+            return Err("validator keys must be sorted and distinct");
+        }
+        if v.iter()
+            .any(|k| VerifyingKey::from_bytes(k).map_or(true, |k| k.is_weak()))
+        {
+            return Err("invalid validator key");
+        }
+        Ok(())
+    }
+
+    /// Votes needed for a decision: more than 2/3 of all validators.
+    pub fn quorum(&self) -> usize {
+        self.validators.len() * 2 / 3 + 1
     }
 }
 
-/// Fixed, publicly known producer key for tests only.
-pub fn test_producer() -> SigningKey {
+/// Fixed, publicly known validator key for tests only.
+pub fn test_validator() -> SigningKey {
     SigningKey::from_bytes(&[9u8; 32])
+}
+
+/// Bytes a validator signs for a vote. `kind` 0 = prevote, 1 = precommit;
+/// `value` is `None` for a nil vote. Shared with the BFT engine.
+pub fn vote_sign_bytes(
+    chain_id: &[u8; 32],
+    kind: u8,
+    height: u64,
+    round: i64,
+    value: Option<&[u8; 32]>,
+    validator: &[u8; 32],
+) -> Vec<u8> {
+    let mut b = Vec::with_capacity(VOTE_DOMAIN.len() + 32 + 1 + 8 + 8 + 33 + 32);
+    b.extend_from_slice(VOTE_DOMAIN);
+    b.extend_from_slice(chain_id);
+    b.push(kind);
+    b.extend_from_slice(&height.to_be_bytes());
+    b.extend_from_slice(&round.to_be_bytes());
+    match value {
+        None => b.push(0),
+        Some(id) => {
+            b.push(1);
+            b.extend_from_slice(id);
+        }
+    }
+    b.extend_from_slice(validator);
+    b
+}
+
+/// Precommits of more than 2/3 of the validators for one block in one round.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Commit {
+    pub round: u32,
+    /// (validator key, Ed25519 signature over the precommit), sorted by key.
+    pub signatures: Vec<([u8; 32], [u8; 64])>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub height: u64,
     pub prev: [u8; 32],
-    /// Producer signature over the block ID; all zero for genesis.
-    pub signature: [u8; 64],
+    /// Empty for genesis and for a proposed block that is not decided yet.
+    pub commit: Commit,
     pub txs: Vec<Vec<u8>>,
 }
 
@@ -80,8 +155,9 @@ pub enum LedgerError {
     FeeExceedsRemainingSupply,
     /// A proof, spend-auth or binding signature in the block failed.
     Authorization,
-    /// The block is not signed by this network's producer.
-    BadProducerSignature,
+    /// The commit certificate is missing, has unknown or repeated signers,
+    /// a bad signature, or fewer than the quorum.
+    BadCommit,
     TreeFull,
     Genesis(&'static str),
 }
@@ -93,7 +169,8 @@ impl From<EnvelopeError> for LedgerError {
 }
 
 impl Block {
-    /// A block signed by the producer for the given chain.
+    /// A block decided in round 0 by one validator: enough on a network with
+    /// a single validator (tests, a local network).
     pub fn produce(
         height: u64,
         prev: [u8; 32],
@@ -101,24 +178,50 @@ impl Block {
         key: &SigningKey,
         chain_id: &[u8; 32],
     ) -> Self {
+        Self::seal(height, prev, txs, 0, &[key], chain_id)
+    }
+
+    /// A block with precommits of `keys` in `round`.
+    pub fn seal(
+        height: u64,
+        prev: [u8; 32],
+        txs: Vec<Vec<u8>>,
+        round: u32,
+        keys: &[&SigningKey],
+        chain_id: &[u8; 32],
+    ) -> Self {
         let mut block = Block {
             height,
             prev,
-            signature: [0; 64],
+            commit: Commit::default(),
             txs,
         };
-        block.signature = key
-            .sign(&signing_message(&block_id(chain_id, &block)))
-            .to_bytes();
+        let id = block_id(chain_id, &block);
+        let mut signatures: Vec<_> = keys
+            .iter()
+            .map(|k| {
+                let key = k.verifying_key().to_bytes();
+                let msg = vote_sign_bytes(chain_id, 1, height, round as i64, Some(&id), &key);
+                (key, k.sign(&msg).to_bytes())
+            })
+            .collect();
+        signatures.sort_by_key(|(k, _)| *k);
+        block.commit = Commit { round, signatures };
         block
     }
 
-    /// height u64 · prev 32 · signature 64 · tx count u32 · (length u32 · envelope)…
+    /// height u64 · prev 32 · round u32 · signer count u16 · (key 32 · signature 64)… ·
+    /// tx count u32 · (length u32 · envelope)…
     pub fn encode(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&self.height.to_le_bytes());
         out.extend_from_slice(&self.prev);
-        out.extend_from_slice(&self.signature);
+        out.extend_from_slice(&self.commit.round.to_le_bytes());
+        out.extend_from_slice(&(self.commit.signatures.len() as u16).to_le_bytes());
+        for (key, sig) in &self.commit.signatures {
+            out.extend_from_slice(key);
+            out.extend_from_slice(sig);
+        }
         out.extend_from_slice(&(self.txs.len() as u32).to_le_bytes());
         for tx in &self.txs {
             out.extend_from_slice(&(tx.len() as u32).to_le_bytes());
@@ -139,7 +242,17 @@ impl Block {
         let mut b = bytes;
         let height = u64::from_le_bytes(take(&mut b, 8)?.try_into().ok()?);
         let prev = take(&mut b, 32)?.try_into().ok()?;
-        let signature = take(&mut b, 64)?.try_into().ok()?;
+        let round = u32::from_le_bytes(take(&mut b, 4)?.try_into().ok()?);
+        let signers = u16::from_le_bytes(take(&mut b, 2)?.try_into().ok()?) as usize;
+        if signers > MAX_VALIDATORS {
+            return None;
+        }
+        let mut signatures = Vec::with_capacity(signers);
+        for _ in 0..signers {
+            let key = take(&mut b, 32)?.try_into().ok()?;
+            let sig = take(&mut b, 64)?.try_into().ok()?;
+            signatures.push((key, sig));
+        }
         let count = u32::from_le_bytes(take(&mut b, 4)?.try_into().ok()?) as usize;
         let mut txs = Vec::with_capacity(count.min(1024));
         for _ in 0..count {
@@ -149,7 +262,7 @@ impl Block {
         b.is_empty().then_some(Block {
             height,
             prev,
-            signature,
+            commit: Commit { round, signatures },
             txs,
         })
     }
@@ -174,17 +287,42 @@ pub fn chain_id<A: Authorization>(params: &Params, genesis: &Bundle<A, i64>) -> 
     h.update(params.supply.to_le_bytes());
     h.update(params.anchor_window.to_le_bytes());
     h.update(params.max_expiry_delta.to_le_bytes());
-    h.update(params.producer);
+    h.update((params.validators.len() as u32).to_le_bytes());
+    for key in &params.validators {
+        h.update(key);
+    }
     h.update(genesis.anchor().to_bytes());
     h.update(effects);
     h.finalize().into()
 }
 
-fn signing_message(id: &[u8; 32]) -> Vec<u8> {
-    [BLOCK_SIG_DOMAIN, id.as_slice()].concat()
+/// Checks a commit certificate for block `id` at `height`: every signer is a
+/// validator, appears once, signed the precommit (strict Ed25519), and the
+/// signers are more than 2/3 of the set.
+pub fn verify_commit(
+    params: &Params,
+    chain_id: &[u8; 32],
+    height: u64,
+    id: &[u8; 32],
+    commit: &Commit,
+) -> Result<(), LedgerError> {
+    let mut seen = HashSet::new();
+    for (key, sig) in &commit.signatures {
+        if !params.validators.contains(key) || !seen.insert(*key) {
+            return Err(LedgerError::BadCommit);
+        }
+        let msg = vote_sign_bytes(chain_id, 1, height, commit.round as i64, Some(id), key);
+        VerifyingKey::from_bytes(key)
+            .and_then(|k| k.verify_strict(&msg, &Signature::from_bytes(sig)))
+            .map_err(|_| LedgerError::BadCommit)?;
+    }
+    if seen.len() < params.quorum() {
+        return Err(LedgerError::BadCommit);
+    }
+    Ok(())
 }
 
-/// Block ID: commits to height, parent and every txid, not to the signature.
+/// Block ID: commits to height, parent and every txid, not to the certificate.
 pub fn block_id(chain_id: &[u8; 32], block: &Block) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(BLOCK_DOMAIN);
@@ -250,6 +388,7 @@ pub struct Ledger {
 impl Ledger {
     /// Validates the genesis envelope and creates the ledger at height 0.
     pub fn from_genesis(params: Params, genesis_tx: &[u8]) -> Result<Self, LedgerError> {
+        params.check_validators().map_err(LedgerError::Genesis)?;
         let env = Envelope::decode(genesis_tx)?;
         let b = &env.bundle;
         let supply =
@@ -281,7 +420,7 @@ impl Ledger {
         let genesis = Block {
             height: 0,
             prev: [0; 32],
-            signature: [0; 64],
+            commit: Commit::default(),
             txs: vec![genesis_tx.to_vec()],
         };
         let tip = block_id(&env.chain_id, &genesis);
@@ -349,14 +488,13 @@ impl Ledger {
             return Err(LedgerError::WrongParent);
         }
         let id = block_id(&self.chain_id, block);
-        let producer = VerifyingKey::from_bytes(&self.params.producer)
-            .map_err(|_| LedgerError::BadProducerSignature)?;
-        producer
-            .verify_strict(
-                &signing_message(&id),
-                &Signature::from_bytes(&block.signature),
-            )
-            .map_err(|_| LedgerError::BadProducerSignature)?;
+        verify_commit(
+            &self.params,
+            &self.chain_id,
+            block.height,
+            &id,
+            &block.commit,
+        )?;
         let (envs, fees) = self.validate_body(block.height, &block.txs, proofs)?;
         let mut frontier = self.frontier.clone();
         for env in &envs {
@@ -375,7 +513,8 @@ impl Ledger {
     }
 
     /// Checks transactions as if they formed the next block, without a
-    /// producer signature (mempool admission and block assembly).
+    /// commit certificate (mempool admission, block assembly, and a
+    /// validator's check of a proposed block).
     pub fn check_candidates(&self, txs: &[Vec<u8>], proofs: ProofCheck) -> Result<(), LedgerError> {
         self.validate_body(self.height + 1, txs, proofs).map(|_| ())
     }

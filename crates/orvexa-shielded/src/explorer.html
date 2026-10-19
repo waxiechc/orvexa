@@ -44,7 +44,7 @@ function dl(pairs) { const l = document.createElement('dl'); for (const [k, v] o
 async function refresh() {
   try {
     const s = await get('/v2/status');
-    $('stats').replaceChildren(stat('Высота', '#' + num(s.height)), stat('Ожидают', num(s.mempool)), stat('Сожжённые комиссии', num(s.burned_fees)), stat('Роль узла', s.role === 'producer' ? 'производитель' : 'ведомый'));
+    $('stats').replaceChildren(stat('Высота', '#' + num(s.height)), stat('Ожидают', num(s.mempool)), stat('Сожжённые комиссии', num(s.burned_fees)), stat('Роль узла', s.role === 'validator' ? 'валидатор' : 'ведомый'));
     const list = await get('/v2/blocks?limit=12');
     $('blocks').replaceChildren(...list.map(b => { const r = text('div', 'row'); r.append(text('span', 'h', '#' + b.height), text('span', 'mono', short(b.id)), text('span', 'right', b.txids.length + ' тр. · ' + b.confirmations + ' подтв.')); return r; }));
   } catch (e) { $('stats').replaceChildren(text('p', 'err', 'Узел недоступен')); }

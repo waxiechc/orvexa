@@ -297,7 +297,7 @@ fn ledger_genesis_effects(ledger: &Ledger, genesis_tx: &[u8]) -> Result<Validate
         block: Block {
             height: 0,
             prev: [0; 32],
-            signature: [0; 64],
+            commit: crate::ledger::Commit::default(),
             txs: vec![genesis_tx.to_vec()],
         },
         envs: vec![env],
@@ -333,17 +333,24 @@ fn column<T: rusqlite::types::FromSql>(conn: &Connection, sql: &str) -> Result<V
 }
 
 fn encode_params(p: &Params) -> Vec<u8> {
-    let mut out = Vec::with_capacity(84);
+    let mut out = Vec::with_capacity(56 + 32 * p.validators.len());
     out.extend_from_slice(&p.salt);
     out.extend_from_slice(&p.supply.to_le_bytes());
     out.extend_from_slice(&p.anchor_window.to_le_bytes());
     out.extend_from_slice(&p.max_expiry_delta.to_le_bytes());
-    out.extend_from_slice(&p.producer);
+    out.extend_from_slice(&(p.validators.len() as u32).to_le_bytes());
+    for key in &p.validators {
+        out.extend_from_slice(key);
+    }
     out
 }
 
 fn decode_params(b: &[u8]) -> Result<Params, StoreError> {
-    if b.len() != 84 {
+    if b.len() < 56 {
+        return Err(StoreError::Corrupt("params"));
+    }
+    let count = u32::from_le_bytes(b[52..56].try_into().unwrap()) as usize;
+    if count > crate::ledger::MAX_VALIDATORS || b.len() != 56 + 32 * count {
         return Err(StoreError::Corrupt("params"));
     }
     Ok(Params {
@@ -351,6 +358,6 @@ fn decode_params(b: &[u8]) -> Result<Params, StoreError> {
         supply: u64::from_le_bytes(b[32..40].try_into().unwrap()),
         anchor_window: u32::from_le_bytes(b[40..44].try_into().unwrap()),
         max_expiry_delta: u64::from_le_bytes(b[44..52].try_into().unwrap()),
-        producer: b[52..84].try_into().unwrap(),
+        validators: b[56..].chunks(32).map(|c| c.try_into().unwrap()).collect(),
     })
 }

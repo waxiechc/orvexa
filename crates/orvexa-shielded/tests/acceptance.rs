@@ -1,4 +1,4 @@
-//! Stage 7 acceptance on real processes: producer + follower nodes, wallets
+//! Stage 7 acceptance on real processes: a validator (one-validator network) + follower nodes, wallets
 //! over the HTTP API only, A → B → C and back, lookup by hash, double spend
 //! through the API, SIGKILL restart of both nodes, restore on another
 //! "device", and a scan of every API response and log for protected data.
@@ -81,7 +81,7 @@ where
 struct World {
     dir: PathBuf,
     genesis: PathBuf,
-    producer: Option<Proc>,
+    validator: Option<Proc>,
     follower: Option<Proc>,
     a: SeedWallet,
     b: SeedWallet,
@@ -92,27 +92,29 @@ struct World {
 
 impl World {
     fn p(&self) -> NodeClient {
-        NodeClient::new(&self.producer.as_ref().unwrap().url)
+        NodeClient::new(&self.validator.as_ref().unwrap().url)
     }
     fn f(&self) -> NodeClient {
         NodeClient::new(&self.follower.as_ref().unwrap().url)
     }
 
     fn start_nodes(&mut self) {
-        let producer = start(
+        let validator = start(
             &self.dir,
-            "producer",
+            "validator",
             &self.genesis,
             &[
-                "--produce-every-ms",
+                "--block-every-ms",
                 "200",
-                "--producer-key",
-                self.dir.join("producer.key").to_str().unwrap(),
+                "--timeouts-ms",
+                "600",
+                "--validator-key",
+                self.dir.join("validator.key").to_str().unwrap(),
             ],
         );
-        let follow = ["--follow", producer.url.as_str(), "--poll-ms", "150"];
+        let follow = ["--follow", validator.url.as_str(), "--poll-ms", "150"];
         self.follower = Some(start(&self.dir, "follower", &self.genesis, &follow));
-        self.producer = Some(producer);
+        self.validator = Some(validator);
     }
 
     async fn sync_all(&mut self) {
@@ -122,7 +124,7 @@ impl World {
         }
     }
 
-    /// Submits through the follower (forwarded to the producer), waits until
+    /// Submits through the follower (forwarded to the validator), waits until
     /// the follower has the block, then every wallet syncs from the follower.
     async fn send(&mut self, env: Envelope) -> [u8; 32] {
         let f = self.f();
@@ -168,8 +170,8 @@ async fn private_v2_end_to_end() {
             "genesis",
             "--to",
             &orvexa_shielded::address::encode(&a.address()),
-            "--producer-key",
-            dir.join("producer.key").to_str().unwrap(),
+            "--validator-key",
+            dir.join("validator.key").to_str().unwrap(),
             "--out",
             genesis.to_str().unwrap(),
         ])
@@ -180,7 +182,7 @@ async fn private_v2_end_to_end() {
     let mut w = World {
         dir: dir.clone(),
         genesis,
-        producer: None,
+        validator: None,
         follower: None,
         a,
         b,
@@ -272,13 +274,13 @@ async fn private_v2_end_to_end() {
     // Restart both nodes with SIGKILL; state and tip survive.
     let before = w.f().status().await.unwrap();
     kill(w.follower.take().unwrap());
-    kill(w.producer.take().unwrap());
+    kill(w.validator.take().unwrap());
     w.start_nodes();
     let p_after = w.p().status().await.unwrap();
     assert_eq!(
         (p_after.height, &p_after.tip),
         (before.height, &before.tip),
-        "producer resumed at the same tip"
+        "validator resumed at the same tip"
     );
     until("follower resumed", || async {
         w.f().status().await.is_ok_and(|s| s.tip == before.tip)
@@ -307,7 +309,7 @@ async fn private_v2_end_to_end() {
 
     // Protected data never appears in API views, pages or node logs.
     let mut logs = String::new();
-    for name in ["producer.log", "follower.log"] {
+    for name in ["validator.log", "follower.log"] {
         logs.push_str(&std::fs::read_to_string(dir.join(name)).unwrap());
     }
     let addresses: Vec<String> = [&w.a, &w.b, &w.c]
@@ -328,7 +330,7 @@ async fn private_v2_end_to_end() {
         }
     }
     assert!(
-        logs.contains("produced block") && logs.contains("followed block"),
+        logs.contains("committed block") && logs.contains("synced block"),
         "nodes logged their work"
     );
 }

@@ -1,0 +1,1 @@
+The published genawaiter 0.99.1 declares "MIT" in Cargo.toml.orig. No standalone LICENSE/copyright file exists in the exact source tree b7e93c2d444a5c63e94e14f6809c8dc27785c1c7. The SPDX MIT text is a reference with its original placeholders, not an invented upstream notice.

@@ -31,6 +31,14 @@ axum.workspace = true
 ed25519-dalek.workspace = true
 tower.workspace = true
 reqwest.workspace = true
+# BFT consensus between validators (Tendermint, Apache-2.0). Alpha, not externally audited:
+# fine for the test network, needs an audit before real value (docs/PRIVATE_V2_SPEC.md §6.7).
+malachitebft-core-consensus = { package = "arc-malachitebft-core-consensus", version = "=0.8.1", default-features = false, features = ["std"] }
+malachitebft-core-types = { package = "arc-malachitebft-core-types", version = "=0.8.1" }
+malachitebft-signing = { package = "arc-malachitebft-signing", version = "=0.8.1" }
+malachitebft-signing-ed25519 = { package = "arc-malachitebft-signing-ed25519", version = "=0.8.1" }
+async-trait = "0.1"
+futures = { version = "0.3", default-features = false, features = ["executor"] }
 
 [dev-dependencies]
 tempfile.workspace = true

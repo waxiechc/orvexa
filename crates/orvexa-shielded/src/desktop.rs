@@ -16,11 +16,12 @@
 //! the embedded node and carry no private data.
 
 use crate::address;
+use crate::bft::engine::{default_timeouts, EngineConfig};
 use crate::disclosure::{PaymentReceipt, PublicConsent, ViewingKey};
 use crate::envelope::Envelope;
 use crate::ledger::Params;
-use crate::node::{embed, NodeConfig, NodeHandle, ProducerKey, Role};
-use crate::profile::{create_producer_key, read_producer_key, NetworkProfile};
+use crate::node::{embed, NodeConfig, NodeHandle, Role, ValidatorKey};
+use crate::profile::{create_validator_key, read_validator_key, NetworkProfile};
 use crate::seed_file::{self, SeedFileError};
 use crate::seed_wallet::{Access, SeedWallet, WORDS};
 use crate::wallet::{build_genesis, WalletError};
@@ -145,11 +146,17 @@ impl DesktopV2 {
         if service.profile_path().exists() {
             let text =
                 std::fs::read_to_string(service.profile_path()).map_err(|e| e.to_string())?;
-            let profile = NetworkProfile::parse(&text)?;
-            let node = service.start_node(&profile).await?;
-            let mut inner = service.inner.lock().await;
-            inner.node = Some(node);
-            inner.profile_name = Some(profile.name);
+            match NetworkProfile::parse(&text) {
+                Ok(profile) => {
+                    let node = service.start_node(&profile).await?;
+                    let mut inner = service.inner.lock().await;
+                    inner.node = Some(node);
+                    inner.profile_name = Some(profile.name);
+                }
+                // A test network from an earlier format (one producer) cannot be
+                // joined any more: set it aside and start without a network.
+                Err(e) => service.retire_network(&e)?,
+            }
         }
         let weak = Arc::downgrade(&service);
         tokio::spawn(async move {
@@ -163,18 +170,51 @@ impl DesktopV2 {
         Ok(service)
     }
 
-    /// Producer when this computer holds the network's producer key,
-    /// otherwise a follower of the profile's first public node.
+    /// Moves an unusable network file and its node data to `retired-<time>`.
+    /// Wallets stay: they are seeds, not tied to one network.
+    fn retire_network(&self, reason: &str) -> Result<(), String> {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let retired = self.root.join(format!("retired-{stamp}"));
+        std::fs::create_dir_all(&retired).map_err(|e| e.to_string())?;
+        std::fs::rename(self.profile_path(), retired.join("network.json"))
+            .map_err(|e| e.to_string())?;
+        if self.root.join("node").exists() {
+            std::fs::rename(self.root.join("node"), retired.join("node"))
+                .map_err(|e| e.to_string())?;
+        }
+        eprintln!(
+            "ORVEXA v2 network set aside ({reason}); moved to {}",
+            retired.display()
+        );
+        Ok(())
+    }
+
+    /// Validator when this computer holds one of the network's validator
+    /// keys, otherwise a follower of the profile's first public node.
     async fn start_node(&self, profile: &NetworkProfile) -> Result<(Router, NodeHandle), String> {
-        let key_path = self.root.join("node").join("producer.key");
-        let role = if key_path.exists() {
-            Role::Producer {
-                every: self.block_every,
-                key: ProducerKey(Arc::new(read_producer_key(&key_path)?)),
+        let key_path = self.root.join("node").join("validator.key");
+        let key = if key_path.exists() {
+            Some(read_validator_key(&key_path)?)
+        } else {
+            None
+        };
+        let role = if let Some(key) =
+            key.filter(|k| profile.is_validator(&k.verifying_key().to_bytes()))
+        {
+            Role::Validator {
+                engine: EngineConfig {
+                    peers: profile.peers_of(&key.verifying_key().to_bytes()),
+                    block_every: self.block_every,
+                    timeouts: default_timeouts(),
+                },
+                key: ValidatorKey(Arc::new(key)),
             }
         } else {
             let upstream = profile
-                .nodes
+                .public_nodes()
                 .first()
                 .cloned()
                 .ok_or("this network lists no public node to follow")?;
@@ -326,7 +366,7 @@ async fn proxy(State(s): State<Arc<DesktopV2>>, request: Request<Body>) -> Respo
 struct NetworkView {
     exists: bool,
     name: Option<String>,
-    /// "producer" (this computer seals blocks) or "follower".
+    /// "validator" (this computer votes on blocks) or "follower".
     role: Option<&'static str>,
     upstream: Option<String>,
     upstream_height: Option<u64>,
@@ -1026,16 +1066,16 @@ async fn create_network(
         })?;
     let internal = |e: String| Failure(StatusCode::INTERNAL_SERVER_ERROR, e);
     std::fs::create_dir_all(s.root.join("node")).map_err(|e| internal(e.to_string()))?;
-    let key_path = s.root.join("node").join("producer.key");
+    let key_path = s.root.join("node").join("validator.key");
     let key = if key_path.exists() {
-        read_producer_key(&key_path)
+        read_validator_key(&key_path)
     } else {
-        create_producer_key(&key_path)
+        create_validator_key(&key_path)
     }
     .map_err(internal)?;
     let mut params = Params::test(SUPPLY);
     crate::keys::os_rng().fill_bytes(&mut params.salt);
-    params.producer = key.verifying_key().to_bytes();
+    params.validators = vec![key.verifying_key().to_bytes()];
     let genesis = tokio::task::block_in_place(|| build_genesis(&params, &[(recipient, SUPPLY)]));
     let chain_id = Envelope::decode(&genesis)
         .map_err(|e| internal(format!("{e:?}")))?
@@ -1078,7 +1118,7 @@ async fn join_network(
         })?,
         None => default_profile().ok_or_else(|| bad("This build has no public v2 test network yet. Import a network file from its operator."))?,
     };
-    if profile.nodes.is_empty() {
+    if profile.public_nodes().is_empty() {
         return Err(bad("This network file lists no public node to connect to."));
     }
     let mut inner = s.inner.lock().await;

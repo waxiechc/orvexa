@@ -2,7 +2,7 @@
 //! write, and detection of a tampered store.
 
 use orvexa_shielded::{
-    ledger::{test_producer, Block, Ledger, LedgerError, Params, ProofCheck},
+    ledger::{test_validator, Block, Ledger, LedgerError, Params, ProofCheck},
     store::{Fault, Store, StoreError},
     wallet::{build_genesis, Wallet},
     Envelope,
@@ -54,7 +54,7 @@ impl Chain {
             ledger.height() + 1,
             ledger.tip(),
             vec![tx],
-            &test_producer(),
+            &test_validator(),
             &ledger.chain_id(),
         )
     }
@@ -112,7 +112,7 @@ fn reopen_recomputes_identical_state_fast_and_full() {
         3,
         reopened.ledger().tip(),
         block.txs,
-        &test_producer(),
+        &test_validator(),
         &reopened.ledger().chain_id(),
     );
     assert_eq!(
@@ -133,7 +133,7 @@ fn rejected_block_writes_nothing() {
         store.ledger().height() + 1,
         store.ledger().tip(),
         vec![tx],
-        &test_producer(),
+        &test_validator(),
         &store.ledger().chain_id(),
     );
     let before = store.ledger().state_digest();
@@ -267,11 +267,11 @@ fn tampered_store_is_detected() {
         conn.execute("UPDATE blocks SET body = ?1 WHERE height = 1", [body])
             .unwrap();
     }
-    // The edited body no longer matches the producer's signature.
+    // The edited body no longer matches the commit certificate.
     for mode in [ProofCheck::Skip, ProofCheck::Verify] {
         assert_eq!(
             Store::open(&dir.join("v2.sqlite"), mode).err(),
-            Some(StoreError::Ledger(LedgerError::BadProducerSignature))
+            Some(StoreError::Ledger(LedgerError::BadCommit))
         );
     }
 

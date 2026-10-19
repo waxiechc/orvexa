@@ -623,7 +623,7 @@
   "Import a network file": "Загрузить файл сети",
   "Get the network file from the network's operator. It is public and is fully checked before use.": "Файл сети выдаёт её оператор. Он публичный и полностью проверяется перед использованием.",
   "This network file is too large.": "Файл сети слишком большой.",
-  "This computer produces the blocks of this network.": "Этот компьютер производит блоки этой сети.",
+  "This computer is a validator of this network: a block is accepted when more than 2/3 of the validators agree.": "Этот компьютер — валидатор этой сети: блок принимается, когда согласны больше 2/3 валидаторов.",
   "Syncing: block #{v0} of #{v1}.": "Синхронизация: блок #{v0} из #{v1}.",
   "Up to date with {v0}. Every block is checked here.": "Синхронизировано с {v0}. Каждый блок проверяется здесь.",
   "Share the network file": "Поделиться файлом сети",

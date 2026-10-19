@@ -4,7 +4,7 @@ use orchard::keys::Scope;
 use orvexa_shielded::{
     disclosure::{DisclosureError, PaymentReceipt, PublicConsent, ViewingKey},
     envelope::Envelope,
-    ledger::{test_producer, Block, Ledger, Params},
+    ledger::{test_validator, Block, Ledger, Params},
     seed_file::{self, SeedFileError},
     seed_wallet::{Access, SeedWallet},
     wallet::{build_genesis, WalletError},
@@ -44,7 +44,7 @@ impl Net {
             height,
             self.ledger.tip(),
             txs.iter().map(Envelope::encode).collect(),
-            &test_producer(),
+            &test_validator(),
             &self.ledger.chain_id(),
         );
         self.ledger.apply_block(&block).unwrap();

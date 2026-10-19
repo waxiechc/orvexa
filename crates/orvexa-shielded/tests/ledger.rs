@@ -12,7 +12,10 @@ use orchard::{
 };
 use orvexa_shielded::{
     envelope::{self, Envelope, EnvelopeError, ACTION_BYTES},
-    ledger::{empty_anchor, test_producer, Block, Ledger, LedgerError, Params},
+    ledger::{
+        block_id, empty_anchor, test_validator, verify_commit, Block, Commit, Ledger, LedgerError,
+        Params,
+    },
     wallet::{build_envelope, build_genesis, RawTx, Wallet, WalletError},
 };
 use shardtree::{store::memory::MemoryShardStore, ShardTree};
@@ -64,7 +67,7 @@ impl Net {
             self.ledger.height() + 1,
             self.ledger.tip(),
             txs,
-            &test_producer(),
+            &test_validator(),
             &self.ledger.chain_id(),
         )
     }
@@ -434,7 +437,7 @@ fn p3_03_restart_replay_keeps_nullifiers() {
         n.ledger.height() + 1,
         n.ledger.tip(),
         vec![second],
-        &test_producer(),
+        &test_validator(),
         &n.ledger.chain_id(),
     );
     assert_eq!(
@@ -631,39 +634,104 @@ fn vectors_sizes_and_domains() {
 }
 
 #[test]
-fn blocks_need_the_producer_signature() {
+fn blocks_need_a_commit_certificate() {
     let mut n = net();
     let tx = n.pay(&n.a, n.b.address, 1_000);
     let height = n.ledger.height() + 1;
     let chain = n.ledger.chain_id();
     let before = n.ledger.state_digest();
-    // Signed by someone else.
+    // Signed by someone who is not a validator.
     let stranger = ed25519_dalek::SigningKey::from_bytes(&[3u8; 32]);
     let forged = Block::produce(height, n.ledger.tip(), vec![tx.clone()], &stranger, &chain);
-    assert_eq!(
-        n.ledger.apply_block(&forged),
-        Err(LedgerError::BadProducerSignature)
-    );
-    // Right key, but the block content changed after signing.
-    let mut swapped = Block::produce(height, n.ledger.tip(), vec![], &test_producer(), &chain);
+    assert_eq!(n.ledger.apply_block(&forged), Err(LedgerError::BadCommit));
+    // Right key, but the block content changed after the precommit.
+    let mut swapped = Block::produce(height, n.ledger.tip(), vec![], &test_validator(), &chain);
     swapped.txs = vec![tx.clone()];
-    assert_eq!(
-        n.ledger.apply_block(&swapped),
-        Err(LedgerError::BadProducerSignature)
-    );
-    // Unsigned.
+    assert_eq!(n.ledger.apply_block(&swapped), Err(LedgerError::BadCommit));
+    // No certificate at all.
     let mut unsigned = Block::produce(
         height,
         n.ledger.tip(),
         vec![tx.clone()],
-        &test_producer(),
+        &test_validator(),
         &chain,
     );
-    unsigned.signature = [0; 64];
-    assert_eq!(
-        n.ledger.apply_block(&unsigned),
-        Err(LedgerError::BadProducerSignature)
+    unsigned.commit = Commit::default();
+    assert_eq!(n.ledger.apply_block(&unsigned), Err(LedgerError::BadCommit));
+    // A precommit for another round does not count for the round it claims.
+    let mut moved = Block::produce(
+        height,
+        n.ledger.tip(),
+        vec![tx.clone()],
+        &test_validator(),
+        &chain,
     );
+    moved.commit.round = 1;
+    assert_eq!(n.ledger.apply_block(&moved), Err(LedgerError::BadCommit));
+    // The certificate survives encoding.
+    let good = Block::seal(
+        height,
+        n.ledger.tip(),
+        vec![tx.clone()],
+        2,
+        &[&test_validator()],
+        &chain,
+    );
+    assert_eq!(Block::decode(&good.encode()), Some(good.clone()));
     assert_eq!(n.ledger.state_digest(), before);
-    n.apply(vec![tx]).unwrap();
+    n.ledger.apply_block(&good).unwrap();
+}
+
+#[test]
+fn commit_needs_more_than_two_thirds_of_distinct_validators() {
+    let keys: Vec<ed25519_dalek::SigningKey> = (1..=4u8)
+        .map(|i| ed25519_dalek::SigningKey::from_bytes(&[i; 32]))
+        .collect();
+    let mut params = Params::test(1);
+    params
+        .set_validators(keys.iter().map(|k| k.verifying_key().to_bytes()).collect())
+        .unwrap();
+    assert_eq!(params.quorum(), 3);
+    let chain = [5u8; 32];
+    let block = |signers: &[&ed25519_dalek::SigningKey]| {
+        Block::seal(7, [1; 32], vec![], 0, signers, &chain)
+    };
+    let check = |b: &Block| verify_commit(&params, &chain, 7, &block_id(&chain, b), &b.commit);
+    assert_eq!(
+        check(&block(&[&keys[0], &keys[1]])),
+        Err(LedgerError::BadCommit),
+        "2 of 4 is not a quorum"
+    );
+    assert_eq!(check(&block(&[&keys[0], &keys[1], &keys[2]])), Ok(()));
+    assert_eq!(
+        check(&block(&[&keys[0], &keys[1], &keys[2], &keys[3]])),
+        Ok(())
+    );
+    // The same validator twice does not make three.
+    let mut twice = block(&[&keys[0], &keys[1]]);
+    twice.commit.signatures.push(twice.commit.signatures[0]);
+    assert_eq!(check(&twice), Err(LedgerError::BadCommit));
+    // A stranger's signature does not count either.
+    let stranger = ed25519_dalek::SigningKey::from_bytes(&[9; 32]);
+    assert_eq!(
+        check(&block(&[&keys[0], &keys[1], &stranger])),
+        Err(LedgerError::BadCommit)
+    );
+    // Certificates are chain-bound: the same votes on another chain fail.
+    let b = block(&[&keys[0], &keys[1], &keys[2]]);
+    assert_eq!(
+        verify_commit(&params, &[6u8; 32], 7, &block_id(&chain, &b), &b.commit),
+        Err(LedgerError::BadCommit)
+    );
+    // Bad validator sets are refused.
+    assert!(params.set_validators(vec![]).is_err());
+    let many = (0..65u8)
+        .map(|i| {
+            ed25519_dalek::SigningKey::from_bytes(&[i; 32])
+                .verifying_key()
+                .to_bytes()
+        })
+        .collect();
+    assert!(params.set_validators(many).is_err(), "at most 64");
+    assert!(params.set_validators(vec![[0u8; 32]]).is_err(), "weak key");
 }

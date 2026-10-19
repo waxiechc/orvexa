@@ -1,0 +1,14 @@
+{
+    "package": "arc-malachitebft-core-types",
+    "version": "0.8.1",
+    "repository": "https://github.com/circlefin/malachite",
+    "commit": "f20bebd9c8a7c6a395605bfaa97f7d3a536e3bd3",
+    "declared_license": "Apache-2.0",
+    "sources": [
+        {
+            "url": "https://raw.githubusercontent.com/circlefin/malachite/f20bebd9c8a7c6a395605bfaa97f7d3a536e3bd3/LICENSE",
+            "file": "LICENSE",
+            "sha256": "eb99c660bf86a9b0a684b31d13fc82d744563a9184ddd8c23cc60f1f54a29dea"
+        }
+    ]
+}

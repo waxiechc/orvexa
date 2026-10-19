@@ -1,0 +1,14 @@
+{
+    "package": "genawaiter",
+    "version": "0.99.1",
+    "repository": "https://github.com/whatisaphone/genawaiter",
+    "commit": "b7e93c2d444a5c63e94e14f6809c8dc27785c1c7",
+    "declared_license": "MIT",
+    "sources": [
+        {
+            "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+            "file": "LICENSE-SPDX-MIT.txt",
+            "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+    ]
+}

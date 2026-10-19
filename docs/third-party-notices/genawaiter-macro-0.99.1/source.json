@@ -1,0 +1,19 @@
+{
+    "package": "genawaiter-macro",
+    "version": "0.99.1",
+    "repository": "https://github.com/whatisaphone/genawaiter",
+    "commit": "f48046a9f66fbd2e535d5614fa7fe0d0b1a6a046",
+    "declared_license": "MIT/Apache-2.0",
+    "sources": [
+        {
+            "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+            "file": "LICENSE-SPDX-MIT.txt",
+            "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        },
+        {
+            "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/Apache-2.0.txt",
+            "file": "LICENSE-SPDX-Apache-2.0.txt",
+            "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+    ]
+}

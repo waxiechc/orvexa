@@ -9,10 +9,13 @@
 //!
 //! `store` keeps that state durably in SQLite with atomic block commits.
 //!
-//! Not in scope: networking, mempool, block authorship/consensus, RPC. This crate never touches the transparent v1 protocol.
+//! `node` runs the ledger as a validator (BFT consensus, `bft`) or as a
+//! follower that checks every commit certificate. This crate never touches
+//! the transparent v1 protocol.
 
 pub mod address;
 pub mod api;
+pub mod bft;
 pub mod client;
 pub mod desktop;
 pub mod disclosure;
@@ -27,4 +30,4 @@ pub mod store;
 pub mod wallet;
 
 pub use envelope::{Envelope, EnvelopeError};
-pub use ledger::{Block, Ledger, LedgerError, Params, ProofCheck, Validated};
+pub use ledger::{Block, Commit, Ledger, LedgerError, Params, ProofCheck, Validated};

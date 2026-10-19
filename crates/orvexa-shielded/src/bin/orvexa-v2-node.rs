@@ -1,18 +1,23 @@
 //! orvexa-v2-node — private v2 test network node for operators.
 //!
-//!   orvexa-v2-node genesis --to <ovxt1… address> --producer-key producer.key --out network.json
-//!                          [--name "ORVEXA v2 test"] [--nodes https://a.example,https://b.example] [--supply N]
+//!   orvexa-v2-node keygen --out validator.key
+//!   orvexa-v2-node genesis --to <ovxt1… address> --out network.json
+//!                          (--validators KEY[@URL],KEY[@URL]… | --validator-key FILE)
+//!                          [--name "ORVEXA v2 test"] [--nodes https://a.example,…] [--supply N]
 //!   orvexa-v2-node run --data-dir DIR --network network.json [--listen 127.0.0.1:4260]
-//!                      (--producer-key producer.key --produce-every-ms N | [--follow URL] [--poll-ms N])
+//!                      (--validator-key FILE [--block-every-ms N] [--timeouts-ms N] | [--follow URL] [--poll-ms N])
 //!
-//! `genesis` creates the producer key (never overwritten) and the network
-//! file to hand out: people import it in ORVEXA Desktop and join. Test only.
+//! Each validator creates its own key with `keygen` and hands out only the
+//! public key; one operator then writes the network file with all of them.
+//! More than 2/3 of the validators must be online for blocks to be decided.
+//! Test only.
 
 use orvexa_shielded::{
     address,
+    bft::engine::{default_timeouts, EngineConfig},
     ledger::Params,
-    node::{run, NodeConfig, ProducerKey, Role},
-    profile::{create_producer_key, read_producer_key, NetworkProfile},
+    node::{run, NodeConfig, Role, ValidatorKey},
+    profile::{create_validator_key, read_validator_key, NetworkProfile},
     wallet::build_genesis,
     Envelope,
 };
@@ -23,8 +28,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 fn usage() -> ! {
-    eprintln!("usage: orvexa-v2-node genesis --to <ovxt1-address> --producer-key FILE --out network.json [--name NAME] [--nodes URL,URL] [--supply N]");
-    eprintln!("       orvexa-v2-node run --data-dir DIR --network network.json [--listen ADDR] (--producer-key FILE --produce-every-ms N | [--follow URL] [--poll-ms N])");
+    eprintln!("usage: orvexa-v2-node keygen --out validator.key");
+    eprintln!("       orvexa-v2-node genesis --to <ovxt1-address> --out network.json (--validators KEY[@URL],… | --validator-key FILE) [--name NAME] [--nodes URL,URL] [--supply N]");
+    eprintln!("       orvexa-v2-node run --data-dir DIR --network network.json [--listen ADDR] (--validator-key FILE [--block-every-ms N] [--timeouts-ms N] | [--follow URL] [--poll-ms N])");
     std::process::exit(2)
 }
 
@@ -53,22 +59,51 @@ async fn main() {
     let f = flags(&args[1..]);
     let get = |name: &str| f.get(name).cloned().unwrap_or_else(|| usage());
     match command.as_str() {
+        "keygen" => {
+            let out = get("out");
+            let key = create_validator_key(Path::new(&out)).unwrap_or_else(|e| fail(e));
+            println!("{}", hex::encode(key.verifying_key().to_bytes()));
+            eprintln!("validator key written to {out} (keep it secret); public key above");
+        }
         "genesis" => {
             let to = address::decode(&get("to"))
                 .unwrap_or_else(|| fail("--to must be an ovxt1… address"));
-            let key_path = get("producer-key");
-            let key = if Path::new(&key_path).exists() {
-                read_producer_key(Path::new(&key_path))
-            } else {
-                create_producer_key(Path::new(&key_path))
-            }
-            .unwrap_or_else(|e| fail(e));
+            // (public key, node URL) of every validator.
+            let validators: Vec<([u8; 32], String)> =
+                match (f.get("validators"), f.get("validator-key")) {
+                    (Some(list), None) => list
+                        .split(',')
+                        .map(|item| {
+                            let (key, url) =
+                                item.trim().split_once('@').unwrap_or((item.trim(), ""));
+                            let key: [u8; 32] = hex::decode(key)
+                                .ok()
+                                .and_then(|k| k.try_into().ok())
+                                .unwrap_or_else(|| {
+                                    fail(format!("{key} is not a 32-byte hex public key"))
+                                });
+                            (key, url.trim_end_matches('/').to_owned())
+                        })
+                        .collect(),
+                    (None, Some(path)) => {
+                        let key = if Path::new(path).exists() {
+                            read_validator_key(Path::new(path))
+                        } else {
+                            create_validator_key(Path::new(path))
+                        }
+                        .unwrap_or_else(|e| fail(e));
+                        vec![(key.verifying_key().to_bytes(), String::new())]
+                    }
+                    _ => usage(),
+                };
             let mut params = Params::test(
                 f.get("supply")
                     .map_or(1_000_000, |v| v.parse().unwrap_or_else(|_| usage())),
             );
             orvexa_shielded::keys::os_rng().fill_bytes(&mut params.salt);
-            params.producer = key.verifying_key().to_bytes();
+            params
+                .set_validators(validators.iter().map(|(k, _)| *k).collect())
+                .unwrap_or_else(|e| fail(e));
             let genesis = build_genesis(&params, &[(to, params.supply)]);
             let chain_id = Envelope::decode(&genesis).expect("own genesis").chain_id;
             let nodes = f
@@ -79,13 +114,16 @@ async fn main() {
                         .collect()
                 })
                 .unwrap_or_default();
-            let profile = NetworkProfile::new(
+            let mut profile = NetworkProfile::new(
                 f.get("name").map_or("ORVEXA v2 test", String::as_str),
                 &params,
                 &genesis,
                 chain_id,
                 nodes,
             );
+            for (key, url) in &validators {
+                profile.set_validator_url(key, url);
+            }
             profile.validate().unwrap_or_else(|e| fail(e));
             let out = get("out");
             if Path::new(&out).exists() {
@@ -93,32 +131,55 @@ async fn main() {
             }
             std::fs::write(&out, profile.to_json()).unwrap_or_else(|e| fail(e));
             println!(
-                "network {} written to {out}; chain {}",
-                profile.name, profile.chain_id
+                "network {} written to {out}; chain {}; {} validator(s), quorum {}",
+                profile.name,
+                profile.chain_id,
+                params.validators.len(),
+                params.quorum()
             );
         }
         "run" => {
             let text = std::fs::read_to_string(get("network")).unwrap_or_else(|e| fail(e));
             let profile = NetworkProfile::parse(&text).unwrap_or_else(|e| fail(e));
-            let role = match (f.get("produce-every-ms"), f.get("producer-key")) {
-                (Some(ms), Some(key)) => Role::Producer {
-                    every: Duration::from_millis(ms.parse().unwrap_or_else(|_| usage())),
-                    key: ProducerKey(Arc::new(
-                        read_producer_key(Path::new(key)).unwrap_or_else(|e| fail(e)),
-                    )),
-                },
-                (None, None) => Role::Follower {
+            let ms = |name: &str, default: u64| {
+                f.get(name)
+                    .map_or(default, |v| v.parse().unwrap_or_else(|_| usage()))
+            };
+            let role = match f.get("validator-key") {
+                Some(path) => {
+                    let key = read_validator_key(Path::new(path)).unwrap_or_else(|e| fail(e));
+                    let public = key.verifying_key().to_bytes();
+                    if !profile.is_validator(&public) {
+                        fail("this key is not one of the network's validators");
+                    }
+                    let mut timeouts = default_timeouts();
+                    if let Some(base) = f.get("timeouts-ms") {
+                        let base: u64 = base.parse().unwrap_or_else(|_| usage());
+                        timeouts.propose = Duration::from_millis(base);
+                        timeouts.propose_delta = Duration::from_millis(base / 3);
+                        timeouts.prevote = Duration::from_millis(base / 3);
+                        timeouts.prevote_delta = Duration::from_millis(base / 6);
+                        timeouts.precommit = Duration::from_millis(base / 3);
+                        timeouts.precommit_delta = Duration::from_millis(base / 6);
+                        timeouts.rebroadcast = Duration::from_millis(base * 2);
+                    }
+                    Role::Validator {
+                        engine: EngineConfig {
+                            peers: profile.peers_of(&public),
+                            block_every: Duration::from_millis(ms("block-every-ms", 1000)),
+                            timeouts,
+                        },
+                        key: ValidatorKey(Arc::new(key)),
+                    }
+                }
+                None => Role::Follower {
                     upstream: f
                         .get("follow")
                         .cloned()
-                        .or_else(|| profile.nodes.first().cloned())
+                        .or_else(|| profile.public_nodes().first().cloned())
                         .unwrap_or_else(|| fail("no node to follow")),
-                    poll: Duration::from_millis(
-                        f.get("poll-ms")
-                            .map_or(1000, |v| v.parse().unwrap_or_else(|_| usage())),
-                    ),
+                    poll: Duration::from_millis(ms("poll-ms", 1000)),
                 },
-                _ => usage(),
             };
             let config = NodeConfig {
                 data_dir: get("data-dir").into(),

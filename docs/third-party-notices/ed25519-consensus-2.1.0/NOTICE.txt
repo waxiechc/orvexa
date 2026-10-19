@@ -1,0 +1,1 @@
+The published ed25519-consensus 2.1.0 declares "MIT OR Apache-2.0" in Cargo.toml.orig. No standalone LICENSE/copyright file exists in the exact source tree 78f83b21767077f602f30148e513a52e844abbb6. The SPDX MIT and Apache-2.0 texts are references with their original placeholders, not an invented upstream notice.

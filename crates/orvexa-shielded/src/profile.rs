@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub const FORMAT: &str = "orvexa-v2-network";
-pub const VERSION: u32 = 1;
+/// 2: several validators with commit certificates (1 had one producer).
+pub const VERSION: u32 = 2;
 const MAX_NODES: usize = 16;
 const MAX_BYTES: usize = 64 * 1024;
 
@@ -27,15 +28,26 @@ pub struct NetworkProfile {
     pub supply: u64,
     pub anchor_window: u32,
     pub max_expiry_delta: u64,
-    /// Ed25519 public key of the block producer.
-    pub producer: String,
+    /// Validators that decide blocks (more than 2/3 must agree), sorted by key.
+    pub validators: Vec<ValidatorEntry>,
     /// Genesis envelope, hex.
     pub genesis: String,
     /// Public v2 node API base URLs (`https://…`); empty for a local network.
     pub nodes: Vec<String>,
 }
 
+/// A validator: its Ed25519 public key (part of the chain ID) and the
+/// address of its node, where the other validators send consensus messages
+/// (empty when it has none, e.g. a one-computer network).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ValidatorEntry {
+    pub key: String,
+    pub url: String,
+}
+
 impl NetworkProfile {
+    /// `urls` maps validator keys to node addresses; missing ones stay empty.
     pub fn new(
         name: &str,
         params: &Params,
@@ -52,7 +64,14 @@ impl NetworkProfile {
             supply: params.supply,
             anchor_window: params.anchor_window,
             max_expiry_delta: params.max_expiry_delta,
-            producer: hex::encode(params.producer),
+            validators: params
+                .validators
+                .iter()
+                .map(|k| ValidatorEntry {
+                    key: hex::encode(k),
+                    url: String::new(),
+                })
+                .collect(),
             genesis: hex::encode(genesis),
             nodes,
         }
@@ -64,8 +83,50 @@ impl NetworkProfile {
             supply: self.supply,
             anchor_window: self.anchor_window,
             max_expiry_delta: self.max_expiry_delta,
-            producer: hex32(&self.producer).ok_or("producer key")?,
+            validators: self
+                .validators
+                .iter()
+                .map(|v| hex32(&v.key).ok_or_else(|| "validator key".to_string()))
+                .collect::<Result<_, _>>()?,
         })
+    }
+
+    /// Sets the node address of the validator with `key`.
+    pub fn set_validator_url(&mut self, key: &[u8; 32], url: &str) -> bool {
+        let key = hex::encode(key);
+        match self.validators.iter_mut().find(|v| v.key == key) {
+            Some(v) => {
+                v.url = url.trim_end_matches('/').to_owned();
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Node addresses of the validators other than `key`.
+    pub fn peers_of(&self, key: &[u8; 32]) -> Vec<String> {
+        let key = hex::encode(key);
+        self.validators
+            .iter()
+            .filter(|v| v.key != key && !v.url.is_empty())
+            .map(|v| v.url.clone())
+            .collect()
+    }
+
+    /// Public nodes a follower can sync from: `nodes`, then validator nodes.
+    pub fn public_nodes(&self) -> Vec<String> {
+        let mut out = self.nodes.clone();
+        for v in &self.validators {
+            if !v.url.is_empty() && !out.contains(&v.url) {
+                out.push(v.url.clone());
+            }
+        }
+        out
+    }
+
+    pub fn is_validator(&self, key: &[u8; 32]) -> bool {
+        let key = hex::encode(key);
+        self.validators.iter().any(|v| v.key == key)
     }
 
     pub fn genesis(&self) -> Result<Vec<u8>, String> {
@@ -93,12 +154,30 @@ impl NetworkProfile {
         if self.nodes.len() > MAX_NODES {
             return Err("too many node addresses".into());
         }
-        for (i, url) in self.nodes.iter().enumerate() {
-            let ok = (url.starts_with("https://") || url.starts_with("http://"))
+        let url_ok = |url: &str| {
+            (url.starts_with("https://") || url.starts_with("http://"))
                 && url.len() <= 200
                 && !url.contains(char::is_whitespace)
-                && !url.ends_with('/');
-            if !ok || self.nodes[..i].contains(url) {
+                && !url.ends_with('/')
+        };
+        if self
+            .validators
+            .iter()
+            .any(|v| !v.url.is_empty() && !url_ok(&v.url))
+        {
+            return Err(
+                "validator node addresses must be http(s):// URLs without a trailing slash".into(),
+            );
+        }
+        let params = self.params()?;
+        let mut sorted = params.validators.clone();
+        sorted.sort();
+        if sorted != params.validators {
+            return Err("validators must be listed sorted by key".into());
+        }
+        params.check_validators().map_err(str::to_string)?;
+        for (i, url) in self.nodes.iter().enumerate() {
+            if !url_ok(url) || self.nodes[..i].contains(url) {
                 return Err(
                     "node addresses must be distinct http(s):// URLs without a trailing slash"
                         .into(),
@@ -122,17 +201,17 @@ fn hex32(s: &str) -> Option<[u8; 32]> {
     hex::decode(s).ok()?.try_into().ok()
 }
 
-/// Reads a 32-byte producer key file.
-pub fn read_producer_key(path: &Path) -> Result<SigningKey, String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("read producer key: {e}"))?;
+/// Reads a 32-byte validator key file.
+pub fn read_validator_key(path: &Path) -> Result<SigningKey, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("read validator key: {e}"))?;
     let raw: [u8; 32] = bytes
         .try_into()
-        .map_err(|_| "producer key file must be 32 bytes".to_string())?;
+        .map_err(|_| "validator key file must be 32 bytes".to_string())?;
     Ok(SigningKey::from_bytes(&raw))
 }
 
-/// Creates a new producer key file (0600). Never overwrites.
-pub fn create_producer_key(path: &Path) -> Result<SigningKey, String> {
+/// Creates a new validator key file (0600). Never overwrites.
+pub fn create_validator_key(path: &Path) -> Result<SigningKey, String> {
     use rand::rand_core::Rng as _;
     use std::io::Write;
     let mut raw = zeroize::Zeroizing::new([0u8; 32]);
@@ -146,7 +225,7 @@ pub fn create_producer_key(path: &Path) -> Result<SigningKey, String> {
     }
     let mut file = options
         .open(path)
-        .map_err(|e| format!("create producer key: {e}"))?;
+        .map_err(|e| format!("create validator key: {e}"))?;
     file.write_all(raw.as_ref()).map_err(|e| e.to_string())?;
     file.sync_all().map_err(|e| e.to_string())?;
     Ok(SigningKey::from_bytes(&raw))
@@ -155,7 +234,7 @@ pub fn create_producer_key(path: &Path) -> Result<SigningKey, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ledger::test_producer;
+    use crate::ledger::test_validator;
     use crate::seed_wallet::SeedWallet;
     use crate::wallet::build_genesis;
 
@@ -177,18 +256,38 @@ mod tests {
         let good = profile();
         assert_eq!(NetworkProfile::parse(&good.to_json()).unwrap(), good);
         assert_eq!(
-            good.params().unwrap().producer,
-            test_producer().verifying_key().to_bytes()
+            good.params().unwrap().validators,
+            vec![test_validator().verifying_key().to_bytes()]
         );
 
         let mut p = good.clone();
         p.chain_id = hex::encode([0u8; 32]);
         assert!(p.validate().is_err(), "chain ID must be recomputed");
         let mut p = good.clone();
-        p.producer = hex::encode(SigningKey::from_bytes(&[4; 32]).verifying_key().to_bytes());
+        p.validators[0].key =
+            hex::encode(SigningKey::from_bytes(&[4; 32]).verifying_key().to_bytes());
         assert!(
             p.validate().is_err(),
-            "another producer means another chain"
+            "another validator set means another chain"
+        );
+        let mut p = good.clone();
+        p.validators[0].url = "ftp://x".into();
+        assert!(p.validate().is_err());
+        let mut p = good.clone();
+        assert!(p.set_validator_url(
+            &test_validator().verifying_key().to_bytes(),
+            "https://v1.example/"
+        ));
+        assert!(
+            p.validate().is_ok(),
+            "validator addresses can change without changing the chain"
+        );
+        assert_eq!(
+            p.public_nodes(),
+            vec![
+                "https://node.example".to_string(),
+                "https://v1.example".to_string()
+            ]
         );
         let mut p = good.clone();
         p.supply += 1;
