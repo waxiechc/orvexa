@@ -160,7 +160,30 @@ async fn private_v2_inside_the_desktop_app() {
         "explorer is public"
     );
 
-    // Private transfer A → B.
+    // The recommended fee: one note in, recipient and change out = 2 actions.
+    let quote = ok(
+        &app,
+        "GET",
+        &format!("/v2/desktop/wallets/{a}/fee?amount=250000"),
+        None,
+    )
+    .await;
+    assert_eq!(quote["fee"], "10");
+    assert_eq!(quote["actions"], 2);
+    assert_eq!(quote["congestion"], 1);
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!("/v2/desktop/wallets/{a}/fee?amount=2000000"),
+        None,
+        true,
+    )
+    .await;
+    assert_eq!(status, 400, "more than the balance has no fee");
+    let conditions = call(&app, "GET", "/v2/fee", None, false).await.1;
+    assert_eq!(conditions["per_action"], 5);
+
+    // Private transfer A → B, paying the recommended fee (none given).
     let sent = ok(
         &app,
         "POST",
@@ -402,12 +425,44 @@ async fn second_computer_joins_a_published_network() {
     profile["nodes"] = json!([public]);
     let published = profile.to_string();
 
+    // ORVEXA lists it in the signed network directory (served like Pages).
+    let release_key = ed25519_dalek::SigningKey::from_bytes(&[42; 32]);
+    let directory = orvexa_shielded::directory::Directory::new(
+        vec![orvexa_shielded::profile::NetworkProfile::parse(&published).unwrap()],
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        Duration::from_secs(86_400),
+    )
+    .to_json();
+    let signature = orvexa_shielded::directory::sign(directory.as_bytes(), &release_key);
+    let pages = axum::Router::new()
+        .route(
+            "/networks/directory.json",
+            axum::routing::get(move || async move { directory.clone() }),
+        )
+        .route(
+            "/networks/directory.json.sig",
+            axum::routing::get(move || async move { signature.clone() }),
+        );
+    let pages_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let pages_url = format!(
+        "http://{}/networks/directory.json",
+        pages_listener.local_addr().unwrap()
+    );
+    tokio::spawn(async move { axum::serve(pages_listener, pages).await.unwrap() });
+
     // A tampered file is refused before anything is stored.
     let participant_dir = tempfile::tempdir().unwrap();
-    let participant = DesktopV2::open_with(
+    let participant = DesktopV2::open_full(
         participant_dir.path(),
         TOKEN.into(),
         Duration::from_millis(150),
+        Some(orvexa_shielded::desktop::DirectorySource {
+            url: pages_url.clone(),
+            trusted: vec![release_key.verifying_key().to_bytes()],
+        }),
     )
     .await
     .unwrap();
@@ -433,12 +488,41 @@ async fn second_computer_joins_a_published_network() {
     .await;
     assert_eq!(status, 400, "no built-in public network in this build");
 
-    // One request: join, follow, verify every block.
+    // A list signed by someone else is refused.
+    let impostor = DesktopV2::open_full(
+        tempfile::tempdir().unwrap().path(),
+        TOKEN.into(),
+        Duration::from_millis(150),
+        Some(orvexa_shielded::desktop::DirectorySource {
+            url: pages_url.clone(),
+            trusted: vec![ed25519_dalek::SigningKey::from_bytes(&[43; 32])
+                .verifying_key()
+                .to_bytes()],
+        }),
+    )
+    .await
+    .unwrap();
+    let (status, _) = call(
+        &impostor.router(),
+        "POST",
+        "/v2/desktop/network/discover",
+        Some(json!({})),
+        true,
+    )
+    .await;
+    assert_eq!(status, 502);
+
+    // One button: look the network up, then join, follow, verify every block.
+    let state = ok(&b, "GET", "/v2/desktop/state", None).await;
+    assert_eq!(state["network"]["discovery"], true);
+    let found = ok(&b, "POST", "/v2/desktop/network/discover", Some(json!({}))).await;
+    assert_eq!(found["networks"].as_array().unwrap().len(), 1);
+    assert_eq!(found["networks"][0]["chain_id"], profile["chain_id"]);
     let joined = ok(
         &b,
         "POST",
         "/v2/desktop/network/join",
-        Some(json!({ "profile": published })),
+        Some(json!({ "chain_id": profile["chain_id"] })),
     )
     .await;
     assert_eq!(joined["network"]["role"], "follower");

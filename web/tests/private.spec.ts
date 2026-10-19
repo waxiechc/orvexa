@@ -64,7 +64,10 @@ test('private v2 wallet, network, transfer, receipt and viewing key in the deskt
   await withSession(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`${origin}/#/private`);
-  await expect(page.getByRole('link', { name: 'Приватная сеть v2' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Приватный кошелёк' })).toBeVisible();
+  // In the app the v1 network is frozen: no v1 sending, only viewing.
+  await expect(page.getByRole('link', { name: 'Отправить', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Старая сеть v1 · только просмотр')).toBeVisible();
   await expect(page.getByText('Создайте первый приватный кошелёк')).toBeVisible();
 
   await createWallet(page, 'Основной');
@@ -82,6 +85,9 @@ test('private v2 wallet, network, transfer, receipt and viewing key in the deskt
   await expect.poll(async () => digits(await balance(page).innerText()), { timeout: 30000 }).toBe('1000000');
   await page.locator('.tabbar').getByRole('link', { name: 'Отправить' }).click();
   await page.getByLabel('Сумма').fill('250000');
+  // The recommended fee follows the amount by itself.
+  await expect(page.getByText('Рекомендовано для этого перевода: 10 атомов (действий в переводе: 2).')).toBeVisible();
+  await expect(page.getByLabel('Сетевая комиссия', { exact: false })).toHaveValue('10');
   await page.getByLabel('Адрес получателя').fill(address);
   await page.getByRole('button', { name: 'Проверить перевод' }).click();
   await expect(page.getByText('Приватный', { exact: true })).toBeVisible();

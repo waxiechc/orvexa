@@ -4,6 +4,8 @@
 //!   orvexa-v2-node genesis --to <ovxt1… address> --out network.json
 //!                          (--validators KEY[@URL],KEY[@URL]… | --validator-key FILE)
 //!                          [--name "ORVEXA v2 test"] [--nodes https://a.example,…] [--supply N]
+//!   orvexa-v2-node directory --key ~/.orvexa-release/update.key --profile network.json[,other.json]
+//!                            --out docs/networks/directory.json [--days 90]
 //!   orvexa-v2-node run --data-dir DIR --network network.json [--listen 127.0.0.1:4260]
 //!                      (--validator-key FILE [--block-every-ms N] [--timeouts-ms N] | [--follow URL] [--poll-ms N])
 //!
@@ -15,6 +17,7 @@
 use orvexa_shielded::{
     address,
     bft::engine::{default_timeouts, EngineConfig},
+    directory::{sign as sign_directory, Directory},
     ledger::Params,
     node::{run, NodeConfig, Role, ValidatorKey},
     profile::{create_validator_key, read_validator_key, NetworkProfile},
@@ -30,6 +33,7 @@ use std::time::Duration;
 fn usage() -> ! {
     eprintln!("usage: orvexa-v2-node keygen --out validator.key");
     eprintln!("       orvexa-v2-node genesis --to <ovxt1-address> --out network.json (--validators KEY[@URL],… | --validator-key FILE) [--name NAME] [--nodes URL,URL] [--supply N]");
+    eprintln!("       orvexa-v2-node directory --key RELEASE-KEY --profile network.json[,…] --out directory.json [--days N]");
     eprintln!("       orvexa-v2-node run --data-dir DIR --network network.json [--listen ADDR] (--validator-key FILE [--block-every-ms N] [--timeouts-ms N] | [--follow URL] [--poll-ms N])");
     std::process::exit(2)
 }
@@ -64,6 +68,44 @@ async fn main() {
             let key = create_validator_key(Path::new(&out)).unwrap_or_else(|e| fail(e));
             println!("{}", hex::encode(key.verifying_key().to_bytes()));
             eprintln!("validator key written to {out} (keep it secret); public key above");
+        }
+        "directory" => {
+            // The published list of networks the app joins with one button,
+            // signed with the release key the app trusts for updates.
+            let key = read_validator_key(Path::new(&get("key"))).unwrap_or_else(|e| fail(e));
+            let networks: Vec<NetworkProfile> = get("profile")
+                .split(',')
+                .map(|path| {
+                    let text = std::fs::read_to_string(path.trim())
+                        .unwrap_or_else(|e| fail(format!("{path}: {e}")));
+                    NetworkProfile::parse(&text).unwrap_or_else(|e| fail(format!("{path}: {e}")))
+                })
+                .collect();
+            let days: u64 = f
+                .get("days")
+                .map_or(90, |v| v.parse().unwrap_or_else(|_| usage()));
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_secs();
+            let directory = Directory::new(networks, now, Duration::from_secs(days * 86_400));
+            let bytes = directory.to_json().into_bytes();
+            let out = get("out");
+            orvexa_shielded::directory::verify(
+                &bytes,
+                &sign_directory(&bytes, &key),
+                &[key.verifying_key().to_bytes()],
+                now,
+            )
+            .unwrap_or_else(|e| fail(e));
+            std::fs::write(&out, &bytes).unwrap_or_else(|e| fail(e));
+            std::fs::write(format!("{out}.sig"), sign_directory(&bytes, &key))
+                .unwrap_or_else(|e| fail(e));
+            println!(
+                "{} network(s) signed into {out} (+ .sig), valid {days} days; signer {}",
+                directory.networks.len(),
+                hex::encode(key.verifying_key().to_bytes())
+            );
         }
         "genesis" => {
             let to = address::decode(&get("to"))

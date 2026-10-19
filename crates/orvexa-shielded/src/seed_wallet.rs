@@ -452,6 +452,50 @@ impl SeedWallet {
         Ok(env)
     }
 
+    /// Number of actions a transfer of `amount` paying `fee` would have,
+    /// choosing notes exactly as [`Self::transfer`] does. Builds nothing.
+    pub fn actions_for(&self, amount: u64, fee: u64) -> Result<usize, WalletError> {
+        if self.sk.is_none() {
+            return Err(WalletError::ViewOnly);
+        }
+        let need = amount.checked_add(fee).ok_or(WalletError::Overflow)?;
+        let (mut spends, mut total) = (0usize, 0u64);
+        for owned in self.spendable() {
+            if total >= need {
+                break;
+            }
+            total = total
+                .checked_add(owned.note.value().inner())
+                .ok_or(WalletError::Overflow)?;
+            spends += 1;
+        }
+        if total < need {
+            return Err(WalletError::InsufficientFunds);
+        }
+        let outputs = if total > need { 2 } else { 1 };
+        Ok(spends.max(outputs).max(crate::fees::MIN_ACTIONS))
+    }
+
+    /// Recommended fee for sending `amount` at congestion `multiplier`, and
+    /// the number of actions it pays for. A larger fee can need one more
+    /// note, so this settles on a fee that covers its own transfer.
+    pub fn recommended_fee(
+        &self,
+        amount: u64,
+        multiplier: u64,
+    ) -> Result<(u64, usize), WalletError> {
+        let mut fee = crate::fees::recommended(crate::fees::MIN_ACTIONS, multiplier);
+        for _ in 0..8 {
+            let actions = self.actions_for(amount, fee)?;
+            let needed = crate::fees::recommended(actions, multiplier);
+            if needed <= fee {
+                return Ok((fee, actions));
+            }
+            fee = needed;
+        }
+        Ok((fee, self.actions_for(amount, fee)?))
+    }
+
     /// Frees the notes a transfer reserved, after the node refused it.
     pub fn release(&mut self, env: &Envelope) {
         for nf in env.nullifiers() {

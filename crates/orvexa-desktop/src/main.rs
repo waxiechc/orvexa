@@ -121,9 +121,23 @@ fn run() -> Result<()> {
             .await
             .context("application port is occupied; use another --listen port")?;
         let origin = format!("http://{}", listener.local_addr()?);
-        let private = orvexa_shielded::desktop::DesktopV2::open(&data.join("v2"), session.clone())
-            .await
-            .map_err(anyhow::Error::msg)?;
+        // Public networks are listed in a file signed with the release key
+        // this build already trusts for updates; fetched only on request.
+        let directory = orvexa_shielded::desktop::DirectorySource {
+            url: std::env::var("ORVEXA_NETWORK_DIRECTORY_URL")
+                .unwrap_or_else(|_| orvexa_shielded::directory::DEFAULT_URL.to_owned()),
+            trusted: orvexa_update::trusted_keys()
+                .iter()
+                .map(|k| k.to_bytes())
+                .collect(),
+        };
+        let private = orvexa_shielded::desktop::DesktopV2::open_with_directory(
+            &data.join("v2"),
+            session.clone(),
+            directory,
+        )
+        .await
+        .map_err(anyhow::Error::msg)?;
         let updates = orvexa_update::Updater::new(&data, session.clone());
         updates.start();
         let app = control.router_with(&web, &origin, private.router().merge(updates.router()))?;

@@ -8,6 +8,7 @@ import NodePanel from './NodePanel';
 import Dropdown from './Dropdown';
 import PrivatePanel from './PrivatePanel';
 import { UpdateToast, UpdateSettings } from './Updates';
+import { session } from './v2';
 import { atoms, availableBalance, errorText, node, NodeError, parseNodeJson, requestRaw, short, type Balance, type BlockDetails, type Genesis, type History, type Status, type TxDetails } from './adapter';
 import { downloadWallet, localCrypto, readWallets, saveWallets, type Wallet } from './vault';
 
@@ -23,16 +24,24 @@ async function readSync(local: string): Promise<Sync | undefined> {
   return target > BigInt(local) ? { local, target: target.toString() } : undefined;
 }
 // Grouped by what people do: move funds, watch the network, look after keys.
-const navGroups = [
+const webGroups = [
   [['dashboard', 'Dashboard', Home], ['send', 'Send', ArrowUpRight], ['receive', 'Receive', ArrowDownLeft], ['transactions', 'Transactions', HistoryIcon]],
   [['explorer', 'Explorer', Globe2], ['node', 'Node', Activity]],
   [['wallets', 'Wallets', WalletIcon], ['backup', 'Backup & Restore', FileKey2], ['settings', 'Settings', Settings2]],
   [['private', 'Private network v2', LockKeyhole]],
 ] as const;
-const routes = navGroups.flat();
+// In the desktop app the private v2 wallet is the wallet; the v1 test network
+// is frozen there and stays only to look at old balances and history.
+const v2First = !!session();
+const desktopGroups = [
+  [['private', 'Private wallet', LockKeyhole], ['settings', 'Settings', Settings2]],
+  [['dashboard', 'Dashboard', Home], ['transactions', 'Transactions', HistoryIcon], ['explorer', 'Explorer', Globe2], ['wallets', 'Wallets', WalletIcon], ['backup', 'Backup & Restore', FileKey2], ['node', 'Node', Activity]],
+] as const;
+const navGroups: readonly (readonly (readonly [string, string, typeof Home])[])[] = v2First ? desktopGroups : webGroups;
+const routes: readonly (readonly [string, string, typeof Home])[] = v2First ? [...desktopGroups.flat(), ['send', 'Send', ArrowUpRight], ['receive', 'Receive', ArrowDownLeft]] : webGroups.flat();
 const verifiedNetworks = new Set<string>();
 const go = (path: string) => { window.location.hash = path; };
-const readRoute = () => window.location.hash.slice(2) || 'dashboard';
+const readRoute = () => window.location.hash.slice(2) || (v2First ? 'private' : 'dashboard');
 const isAuthority = (wallet: Wallet | undefined, genesis: Genesis | undefined) => !!wallet && wallet.address === genesis?.authority;
 const timeLocale = () => getLocale() === 'ru' ? 'ru-RU' : 'en-GB';
 // Counted nouns need real plural forms in Russian (1 перевод, 2 перевода, 5 переводов).
@@ -482,19 +491,21 @@ export default function App() {
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     }}><button className="icon-button drawer-close" aria-label={t("Close navigation")} onClick={() => setMobileNav(false)}><X size={20}/></button>
-      <a href="#/dashboard" className="brand" aria-label={t("ORVEXA Dashboard")}><img className="brand-symbol" src="/brand/orvexa-symbol.svg" alt=""/><img className="brand-wordmark" src="/brand/orvexa-wordmark.svg" alt="ORVEXA"/></a>
-      <nav aria-label={t("Wallet navigation")}>{navGroups.map((group, i) => <div className="nav-group" key={i}>{group.map(([path, label, Icon]) => <a className={`nav-link ${page === path ? 'active' : ''}`} key={path} href={`#/${path}`} aria-current={page === path ? 'page' : undefined}><Icon size={18}/><span>{t(label)}</span></a>)}</div>)}</nav>
-      <div className="sidebar-foot"><div className="network-chip"><span className={`connection-dot ${online ? 'online' : ''}`}/><div><strong>{t("V1 testnet")}</strong><span>{t("Test atoms. No monetary value.")}</span></div></div></div>
+      <a href={v2First ? '#/private' : '#/dashboard'} className="brand" aria-label={t("ORVEXA Dashboard")}><img className="brand-symbol" src="/brand/orvexa-symbol.svg" alt=""/><img className="brand-wordmark" src="/brand/orvexa-wordmark.svg" alt="ORVEXA"/></a>
+      <nav aria-label={t("Wallet navigation")}>{navGroups.map((group, i) => <div className="nav-group" key={i}>{v2First && i === 1 && <p className="nav-heading">{t("Old network v1 · view only")}</p>}{group.map(([path, label, Icon]) => <a className={`nav-link ${page === path ? 'active' : ''}`} key={path} href={`#/${path}`} aria-current={page === path ? 'page' : undefined}><Icon size={18}/><span>{t(label)}</span></a>)}</div>)}</nav>
+      <div className="sidebar-foot"><div className="network-chip">{!v2First && <span className={`connection-dot ${online ? 'online' : ''}`}/>}<div><strong>{v2First ? t("Private network v2") : t("V1 testnet")}</strong><span>{t("Test atoms. No monetary value.")}</span></div></div></div>
     </aside>
     <div className="main-shell" inert={mobile && mobileNav}><header className="topbar"><button ref={menuButton} className="icon-button mobile-menu" aria-label={t("Open navigation")} aria-controls="primary-navigation" aria-expanded={mobileNav} onClick={() => setMobileNav(true)}><Menu size={21}/></button><img className="topbar-symbol" src="/brand/orvexa-symbol.svg" alt="" aria-hidden="true"/>
       <div className="topbar-right">{page !== 'private' && <><div className={`connection-state ${connectionState}`} title={sync ? t("Syncing: block #{v0} of #{v1}. The balance may be incomplete.", { v0: atoms(sync.local), v1: atoms(sync.target) }) : undefined}><span className="connection-dot"/><span className="connection-text">{connection}</span></div><button className="icon-button refresh-button" onClick={refresh} disabled={refreshing} aria-label={t("Refresh node data")} title={t("Refresh node data")}><RefreshCw size={16} className={refreshing ? 'spinning' : ''}/></button></>}<Dropdown className="locale-dropdown" align="end" label={t("Language")} value={locale} onChange={v => setLocale(v as 'ru' | 'en')} options={[{ value: 'ru', label: 'RU', hint: 'Русский' }, { value: 'en', label: 'EN', hint: 'English' }]}/>{page !== 'private' && <WalletPicker wallets={wallets} active={wallet} select={select}/>}</div></header>
       <main id="main-content" tabIndex={-1}><div className="page-heading"><h1>{title}</h1></div>
         {error && page !== 'node' && page !== 'private' && <Notice error>{error}{snapshot && <p>{t("Showing last known state from ")}{snapshot.checked.toLocaleTimeString(timeLocale())}{t(". Signing is disabled.")}</p>}</Notice>}
         {localError && <Notice error>{localError}</Notice>}
+        {v2First && page !== 'private' && page !== 'settings' && page !== 'send' && page !== 'receive' && <Notice>{t("The v1 test network is frozen: balances and history only. Transfers happen in the private wallet.")}</Notice>}
         {receipt && <div className="receipt" role="status"><span className="receipt-icon"><CheckCheck size={18}/></span><div><strong>{t("Transfer submitted")}</strong><span>{t("Track its current status in Explorer")}</span></div><a href={`#/explorer/tx/${receipt}`}>{t("View in Explorer")}<ArrowUpRight size={15}/></a><button className="icon-button" aria-label={t("Dismiss transfer notice")} onClick={() => setReceipt('')}><X size={17}/></button></div>}
         {page === 'dashboard' && <Dashboard snapshot={safeSnapshot} wallet={wallet} entries={entries} online={online} sync={sync} create={showCreate} restore={showRestore} produce={openProduce}/>}
-        {page === 'send' && <Send key={wallet?.id || 'none'} wallet={wallet} snapshot={safeSnapshot} online={online} sync={sync} openWallets={() => go('/wallets')} sent={id => { setReceipt(id); refresh(); go('/dashboard'); }}/>}
-        {page === 'receive' && <Receive wallet={wallet} snapshot={safeSnapshot} openWallets={() => go('/wallets')}/>}
+        {v2First && (page === 'send' || page === 'receive') && <Empty title={t("The v1 network is frozen")} action={<Button onClick={() => go('/private')}><LockKeyhole size={17}/>{t("Open the private wallet")}</Button>}>{t("Transfers now happen in the private network v2. Your v1 balances and history stay here to look at.")}</Empty>}
+        {page === 'send' && !v2First && <Send key={wallet?.id || 'none'} wallet={wallet} snapshot={safeSnapshot} online={online} sync={sync} openWallets={() => go('/wallets')} sent={id => { setReceipt(id); refresh(); go('/dashboard'); }}/>}
+        {page === 'receive' && !v2First && <Receive wallet={wallet} snapshot={safeSnapshot} openWallets={() => go('/wallets')}/>}
         {page === 'transactions' && <section className="surface-section"><div className="section-heading"><div><h2>{wallet ? t("{v0} activity", { v0: wallet.name }) : t("Wallet activity")}</h2><p>{t("Pending and latest 256 confirmed transfers. Genesis allocation is separate.")}</p></div></div><ActivityList entries={entries} wallet={wallet}/></section>}
         {page === 'wallets' && <Wallets wallets={wallets} active={wallet} select={select} create={showCreate} restore={showRestore} online={online} genesis={safeSnapshot?.genesis} rename={(id, name) => { try { update(wallets.map(w => w.id === id ? { ...w, name } : w)); } catch (e) { setLocalError(errorText(e)); } }} remove={id => { try { const next = wallets.filter(w => w.id !== id); update(next); if (selected === id) select(next[0]?.id || ''); } catch (e) { setLocalError(errorText(e)); } }}/>}
         {page === 'backup' && <Backup wallet={wallet} restore={showRestore}/>}

@@ -178,6 +178,7 @@ pub async fn embed(config: NodeConfig) -> Result<(Router, NodeHandle), String> {
 
     let api = Router::new()
         .route("/v2/status", get(status))
+        .route("/v2/fee", get(fee))
         .route("/v2/genesis/raw", get(genesis_raw))
         .route("/v2/blocks", get(blocks))
         .route("/v2/blocks/{height}", get(block))
@@ -293,6 +294,24 @@ impl NodeHandle {
             Role::Follower { upstream, .. } => Some(upstream),
             Role::Validator { .. } => None,
         }
+    }
+
+    /// Queue and rate for the recommended fee. A follower asks the node it
+    /// forwards transfers to (its own queue is always empty).
+    pub async fn fee_conditions(&self) -> crate::fees::FeeConditions {
+        if let Role::Follower { upstream, .. } = &self.role {
+            if let Ok(remote) = fetch_within::<crate::fees::FeeConditions>(
+                &self.http,
+                &format!("{upstream}/v2/fee"),
+                Duration::from_secs(3),
+            )
+            .await
+            {
+                // Take only the queue from the remote node; the rate is ours.
+                return crate::fees::FeeConditions::for_mempool(remote.mempool);
+            }
+        }
+        crate::fees::FeeConditions::for_mempool(self.mempool_len())
     }
 
     /// Height last reported by the followed node.
@@ -627,9 +646,17 @@ async fn catch_up_loop(node: Shared, http: reqwest::Client, peers: Vec<String>) 
 }
 
 async fn fetch<T: serde::de::DeserializeOwned>(http: &reqwest::Client, url: &str) -> Result<T, ()> {
+    fetch_within(http, url, Duration::from_secs(10)).await
+}
+
+async fn fetch_within<T: serde::de::DeserializeOwned>(
+    http: &reqwest::Client,
+    url: &str,
+    timeout: Duration,
+) -> Result<T, ()> {
     let response = http
         .get(url)
-        .timeout(Duration::from_secs(10))
+        .timeout(timeout)
         .send()
         .await
         .map_err(|_| ())?;
@@ -670,6 +697,12 @@ async fn status(State(s): State<AppState>) -> Json<StatusView> {
         remaining_supply: l.remaining_supply(),
         mempool: n.mempool.len(),
     })
+}
+
+/// Inputs of the recommended fee: rate per action and the waiting queue.
+async fn fee(State(s): State<AppState>) -> Json<crate::fees::FeeConditions> {
+    let mempool = s.node.lock().expect("node lock").mempool.len();
+    Json(crate::fees::FeeConditions::for_mempool(mempool))
 }
 
 fn block_at(n: &Node, height: u64) -> Result<Option<Block>, StoreError> {

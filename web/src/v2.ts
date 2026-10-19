@@ -6,7 +6,7 @@ declare global { interface Window { __ORVEXA_V2_SESSION?: string } }
 export const session = () => typeof window.__ORVEXA_V2_SESSION === 'string' ? window.__ORVEXA_V2_SESSION : '';
 
 export type Access = 'spend' | 'view_full' | 'view_incoming';
-export interface NetworkView { exists: boolean; name: string | null; role: 'validator' | 'follower' | null; upstream: string | null; upstream_height: number | null; default_available: boolean; chain_id: string | null; height: number | null; remaining_supply: string | null; mempool: number }
+export interface NetworkView { exists: boolean; name: string | null; role: 'validator' | 'follower' | null; upstream: string | null; upstream_height: number | null; default_available: boolean; discovery: boolean; chain_id: string | null; height: number | null; remaining_supply: string | null; mempool: number }
 export interface WalletSummary { id: string; name: string; address: string | null; unlocked: boolean; access: Access }
 export interface State { network: NetworkView; wallets: WalletSummary[]; supply: string; default_fee: string; idle_lock_minutes: number }
 export interface Activity { kind: 'received' | 'sent' | 'change'; value: string; height: number; txid: string; action: number }
@@ -37,6 +37,9 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 }
 
 const id = (value: string) => encodeURIComponent(value);
+export interface FoundNetwork { name: string; chain_id: string; validators: number; nodes: number }
+export interface FeeQuote { fee: string; actions: number; per_action: number; congestion: number; mempool: number }
+
 export const v2 = {
   state: () => call<State>('/v2/desktop/state'),
   wallet: (w: string) => call<WalletView>(`/v2/desktop/wallets/${id(w)}`),
@@ -46,6 +49,7 @@ export const v2 = {
   unlock: (w: string, password: string) => call<WalletView>(`/v2/desktop/wallets/${id(w)}/unlock`, { password }),
   lock: (w: string) => call<unknown>(`/v2/desktop/wallets/${id(w)}/lock`, {}),
   newAddress: (w: string) => call<{ address: string }>(`/v2/desktop/wallets/${id(w)}/address`, {}),
+  feeQuote: (w: string, amount: string) => call<FeeQuote>(`/v2/desktop/wallets/${id(w)}/fee?amount=${encodeURIComponent(amount)}`),
   send: (w: string, to: string, amount: string, fee: string, publicConsent?: { to: string; amount: string }) =>
     call<{ txid: string; receipt: string | null }>(`/v2/desktop/wallets/${id(w)}/send`, publicConsent ? { to, amount, fee, public: publicConsent } : { to, amount, fee }),
   receipt: (w: string, txid: string, action: number) => call<{ receipt: string }>(`/v2/desktop/wallets/${id(w)}/receipt`, { txid, action }),
@@ -55,6 +59,8 @@ export const v2 = {
   watch: (name: string, key: string) => call<{ id: string }>('/v2/desktop/watch', { name, key }),
   createNetwork: (wallet: string) => call<unknown>('/v2/desktop/network/create', { wallet }),
   joinNetwork: (profile?: string) => call<unknown>('/v2/desktop/network/join', profile === undefined ? {} : { profile }),
+  discoverNetworks: () => call<{ networks: FoundNetwork[] }>('/v2/desktop/network/discover', {}),
+  joinListed: (chain_id: string) => call<unknown>('/v2/desktop/network/join', { chain_id }),
   profile: () => call<unknown>('/v2/desktop/network/profile'),
   chain: () => call<ChainStatus>('/v2/status'),
   blocks: () => call<BlockView[]>('/v2/blocks?limit=10'),

@@ -4,8 +4,8 @@ import AddressMark from './AddressMark';
 import Dropdown from './Dropdown';
 import { Button, CopyButton, Empty, Hash, Modal, Notice } from './App';
 import { atoms, short } from './adapter';
-import { t } from './i18n';
-import { session, v2, type BlockView, type ChainStatus, type Draft, type State, type TxView, type Verified, type WalletView } from './v2';
+import { localizedError, t } from './i18n';
+import { session, v2, type BlockView, type FeeQuote, type FoundNetwork, type ChainStatus, type Draft, type State, type TxView, type Verified, type WalletView } from './v2';
 
 const go = (path: string) => { window.location.hash = path; };
 const message = (e: unknown) => e instanceof Error ? e.message : String(e);
@@ -103,21 +103,31 @@ function Unlock({ id, name, done }: { id: string; name: string; done: () => void
 }
 
 function CreateNetwork({ wallet, state, done }: { wallet?: WalletView; state: State; done: () => void }) {
-  const [busy, setBusy] = useState(''); const [error, setError] = useState('');
+  const [busy, setBusy] = useState(''); const [error, setError] = useState(''); const [found, setFound] = useState<FoundNetwork[]>();
   const run = async (what: string, action: () => Promise<unknown>) => { setBusy(what); setError(''); try { await action(); done(); } catch (e) { setError(message(e)); } finally { setBusy(''); } };
   const importFile = async (file?: File) => {
     if (!file) return;
     if (file.size > 65536) { setError('This network file is too large.'); return; }
     await run('file', async () => v2.joinNetwork(await file.text()));
   };
+  // One button: look up the signed list; a single network is joined right away.
+  const discover = () => run('discover', async () => {
+    const { networks } = await v2.discoverNetworks();
+    if (networks.length === 1) { await v2.joinListed(networks[0].chain_id); return; }
+    setFound(networks);
+    if (!networks.length) throw new Error('No public network is published yet. Create a local one below.');
+  });
   return <section className="surface-section"><div className="section-heading"><div><h2>{t("Choose a private v2 network")}</h2>
     <p>{t("Join a shared test network, or start a local one that lives only on this computer.")}</p></div></div>
     <div className="v2-choices">
       <div className="v2-choice"><h3>{t("Join a shared network")}</h3>
         <p>{t("This computer keeps its own copy of the chain and checks every block and proof itself. Blocks come from the network's public node.")}</p>
-        {state.network.default_available && <Button disabled={!!busy} onClick={() => run('default', () => v2.joinNetwork())}>{busy === 'default' ? <Busy>{t("Connecting…")}</Busy> : <><Globe2 size={17}/>{t("Join the ORVEXA v2 test network")}</>}</Button>}
+        {state.network.discovery && <Button disabled={!!busy} onClick={() => void discover()}>{busy === 'discover' ? <Busy>{t("Looking for networks…")}</Busy> : <><Globe2 size={17}/>{t("Connect to the ORVEXA v2 network")}</>}</Button>}
+        {found && found.length > 1 && <ul className="found-networks">{found.map(n => <li key={n.chain_id}><div><strong>{n.name}</strong><small>{t("{v0} validators · chain {v1}", { v0: n.validators, v1: short(n.chain_id) })}</small></div>
+          <Button kind="secondary" disabled={!!busy} onClick={() => run(n.chain_id, () => v2.joinListed(n.chain_id))}>{busy === n.chain_id ? <Busy>{t("Connecting…")}</Busy> : t("Connect")}</Button></li>)}</ul>}
+        {!state.network.discovery && state.network.default_available && <Button disabled={!!busy} onClick={() => run('default', () => v2.joinNetwork())}>{busy === 'default' ? <Busy>{t("Connecting…")}</Busy> : <><Globe2 size={17}/>{t("Join the ORVEXA v2 test network")}</>}</Button>}
         <label className="file-picker-button">{busy === 'file' ? <Busy>{t("Checking the network file…")}</Busy> : <><Upload size={16}/>{t("Import a network file")}</>}<input type="file" accept=".json,application/json" className="sr-only" disabled={!!busy} onChange={e => void importFile(e.target.files?.[0])}/></label>
-        <p className="caption">{t("Get the network file from the network's operator. It is public and is fully checked before use.")}</p>
+        <p className="caption">{state.network.discovery ? t("The list of networks is signed by ORVEXA and every network in it is checked on this computer. A network file from an operator works too.") : t("Get the network file from the network's operator. It is public and is fully checked before use.")}</p>
       </div>
       <div className="v2-choice"><h3>{t("Create the local private test network")}</h3>
         <p>{t("A new chain only on this computer. All {v0} test atoms go to the selected wallet; send them on to your other v2 wallets.", { v0: atoms(state.supply) })}</p>
@@ -169,6 +179,14 @@ function Overview({ wallet, state, changed }: { wallet: WalletView; state: State
 
 function Send({ wallet, state, sent }: { wallet: WalletView; state: State; sent: () => void }) {
   const [to, setTo] = useState(''); const [amount, setAmount] = useState(''); const [fee, setFee] = useState(state.default_fee);
+  // The recommended fee follows the amount until the user types their own.
+  const [autoFee, setAutoFee] = useState(true); const [quote, setQuote] = useState<FeeQuote>(); const [quoteError, setQuoteError] = useState('');
+  useEffect(() => {
+    if (!autoFee || !/^[1-9]\d*$/.test(amount)) { setQuote(undefined); setQuoteError(''); return; }
+    let live = true;
+    const timer = setTimeout(() => { v2.feeQuote(wallet.id, amount).then(q => { if (live) { setQuote(q); setFee(q.fee); setQuoteError(''); } }).catch(e => { if (live) { setQuote(undefined); setQuoteError(message(e)); } }); }, 300);
+    return () => { live = false; clearTimeout(timer); };
+  }, [amount, autoFee, wallet.id]);
   const [publicMode, setPublicMode] = useState(false); const [agree, setAgree] = useState(false); const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [result, setResult] = useState<{ txid: string; receipt: string | null }>();
   if (wallet.access !== 'spend') return <Empty title={t("A view-only wallet cannot send")}>{t("Choose a wallet with a recovery phrase.")}</Empty>;
@@ -176,7 +194,7 @@ function Send({ wallet, state, sent }: { wallet: WalletView; state: State; sent:
     <div className="flow-heading"><h2>{t("Private transfer submitted")}</h2></div>
     <span className="field-label">{t("Transaction ID")}</span><Hash value={result.txid}/>
     {result.receipt && <><span className="field-label">{t("Public receipt")}</span><Hash value={result.receipt} label="Copy receipt"/><p className="caption">{t("Publish or send this receipt; anyone can check it against the chain.")}</p></>}
-    <Button onClick={() => { setResult(undefined); setReview(false); setAmount(''); setTo(''); setAgree(false); setPublicMode(false); sent(); }}>{t("Done")}</Button>
+    <Button onClick={() => { setResult(undefined); setReview(false); setAmount(''); setTo(''); setAgree(false); setPublicMode(false); setAutoFee(true); sent(); }}>{t("Done")}</Button>
   </section></div>;
   const check = (e: FormEvent) => {
     e.preventDefault(); setError('');
@@ -194,7 +212,11 @@ function Send({ wallet, state, sent }: { wallet: WalletView; state: State; sent:
     {!review ? <form onSubmit={check} className="stack-form">
       <label className="amount-field">{t("Amount")}<div className="amount-input"><input required inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value.replace(/[\s ]/g, ''))} placeholder="0" size={Math.max(2, amount.length + 1)}/><span>{t("atoms")}</span></div></label>
       <label>{t("Recipient address")}<input required spellCheck={false} autoComplete="off" value={to} onChange={e => setTo(e.target.value)} placeholder="ovxt1…"/><small>{t("An address of the private v2 test network.")}</small></label>
-      <label>{t("Network fee")}<div className="input-unit"><input required inputMode="numeric" value={fee} onChange={e => setFee(e.target.value)}/><span>{t("atoms")}</span></div><small>{t("Minimum 1 atom. The fee is public and burned.")}</small></label>
+      <label>{t("Network fee")}<div className="input-unit"><input required inputMode="numeric" value={fee} onChange={e => { setAutoFee(false); setFee(e.target.value.replace(/[\s ]/g, '')); }}/><span>{t("atoms")}</span></div>
+        <small className="fee-hint">{autoFee
+          ? quote ? <>{t("Recommended for this transfer: {v0} atoms for {v1} actions.", { v0: atoms(quote.fee), v1: quote.actions })}{quote.congestion > 1 && <> {t("Many transfers are waiting, so the rate is ×{v0}.", { v0: quote.congestion })}</>}</> : quoteError ? localizedError(quoteError) : t("The recommended fee appears when you enter the amount.")
+          : <>{t("Your own fee. Minimum 1 atom; a fee below the recommended one may wait longer.")} <button type="button" className="link-button" onClick={() => setAutoFee(true)}>{t("Use the recommended fee")}</button></>}</small>
+        <small>{t("The fee is public and burned.")}</small></label>
       <label className="backup-check"><input type="checkbox" checked={publicMode} onChange={e => { setPublicMode(e.target.checked); setAgree(false); }}/>{t("Make this payment public")}</label>
       {error && <Notice error>{error}</Notice>}
       <Button type="submit" className="wide" disabled={!state.network.exists}>{t("Review transfer")}<ArrowRight size={17}/></Button>

@@ -27,7 +27,7 @@ use crate::seed_wallet::{Access, SeedWallet, WORDS};
 use crate::wallet::{build_genesis, WalletError};
 use axum::{
     body::Body,
-    extract::{DefaultBodyLimit, Path as UrlPath, Request, State},
+    extract::{DefaultBodyLimit, Path as UrlPath, Query, Request, State},
     http::StatusCode,
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -47,7 +47,7 @@ use tower::ServiceExt;
 pub const SESSION_HEADER: &str = "x-orvexa-session";
 pub const IDLE_LOCK: Duration = Duration::from_secs(10 * 60);
 pub const SUPPLY: u64 = 1_000_000;
-pub const DEFAULT_FEE: u64 = 10;
+pub const DEFAULT_FEE: u64 = crate::fees::PER_ACTION * crate::fees::MIN_ACTIONS as u64;
 const BLOCK_EVERY: Duration = Duration::from_secs(2);
 const DRAFT_TTL: Duration = Duration::from_secs(15 * 60);
 const CHECK_WORDS: usize = 3;
@@ -79,12 +79,24 @@ struct Inner {
     unlocked: HashMap<String, Session>,
     watch: HashMap<String, (String, SeedWallet)>,
     drafts: HashMap<String, Draft>,
+    /// Networks from the last verified directory download.
+    found: Vec<NetworkProfile>,
+}
+
+/// Where the signed list of public networks is published, and the keys
+/// allowed to sign it (the app's release keys).
+#[derive(Clone, Debug)]
+pub struct DirectorySource {
+    pub url: String,
+    pub trusted: Vec<[u8; 32]>,
 }
 
 pub struct DesktopV2 {
     root: PathBuf,
     token: String,
     block_every: Duration,
+    directory: Option<DirectorySource>,
+    http: reqwest::Client,
     inner: Mutex<Inner>,
 }
 
@@ -115,6 +127,24 @@ impl DesktopV2 {
         token: String,
         block_every: Duration,
     ) -> Result<Arc<Self>, String> {
+        Self::open_full(root, token, block_every, None).await
+    }
+
+    /// Like [`Self::open`], with a published network list to join from.
+    pub async fn open_with_directory(
+        root: &Path,
+        token: String,
+        directory: DirectorySource,
+    ) -> Result<Arc<Self>, String> {
+        Self::open_full(root, token, BLOCK_EVERY, Some(directory)).await
+    }
+
+    pub async fn open_full(
+        root: &Path,
+        token: String,
+        block_every: Duration,
+        directory: Option<DirectorySource>,
+    ) -> Result<Arc<Self>, String> {
         if token.len() < 32 {
             return Err("session token must be at least 32 characters".into());
         }
@@ -134,6 +164,8 @@ impl DesktopV2 {
             root: root.into(),
             token,
             block_every,
+            directory,
+            http: reqwest::Client::new(),
             inner: Mutex::new(Inner {
                 node: None,
                 profile_name: None,
@@ -141,6 +173,7 @@ impl DesktopV2 {
                 unlocked: HashMap::new(),
                 watch: HashMap::new(),
                 drafts: HashMap::new(),
+                found: Vec::new(),
             }),
         });
         if service.profile_path().exists() {
@@ -262,12 +295,14 @@ impl DesktopV2 {
             .route("/v2/desktop/wallets/{id}/lock", post(lock))
             .route("/v2/desktop/wallets/{id}/address", post(new_address))
             .route("/v2/desktop/wallets/{id}/send", post(send))
+            .route("/v2/desktop/wallets/{id}/fee", get(fee_quote))
             .route("/v2/desktop/wallets/{id}/receipt", post(receipt))
             .route("/v2/desktop/wallets/{id}/phrase", post(phrase))
             .route("/v2/desktop/wallets/{id}/viewing-key", post(viewing_key))
             .route("/v2/desktop/watch", post(watch))
             .route("/v2/desktop/receipt/verify", post(verify_receipt))
             .route("/v2/desktop/network/create", post(create_network))
+            .route("/v2/desktop/network/discover", post(discover_networks))
             .route("/v2/desktop/network/join", post(join_network))
             .route("/v2/desktop/network/profile", get(network_profile))
             .route_layer(middleware::from_fn_with_state(
@@ -376,6 +411,8 @@ struct NetworkView {
     mempool: usize,
     /// A built-in public test network is available to join.
     default_available: bool,
+    /// This build can look up published networks (one-button join).
+    discovery: bool,
 }
 
 #[derive(Serialize)]
@@ -426,7 +463,7 @@ fn access_name(a: Access) -> &'static str {
     }
 }
 
-fn network_view(inner: &Inner) -> NetworkView {
+fn network_view(inner: &Inner, discovery: bool) -> NetworkView {
     let default_available = default_profile().is_some();
     match &inner.node {
         Some((_, h)) => NetworkView {
@@ -440,6 +477,7 @@ fn network_view(inner: &Inner) -> NetworkView {
             remaining_supply: Some(h.with_ledger(|l| l.remaining_supply()).to_string()),
             mempool: h.mempool_len(),
             default_available,
+            discovery,
         },
         None => NetworkView {
             exists: false,
@@ -452,6 +490,7 @@ fn network_view(inner: &Inner) -> NetworkView {
             remaining_supply: None,
             mempool: 0,
             default_available,
+            discovery,
         },
     }
 }
@@ -613,7 +652,7 @@ async fn state(State(s): State<Arc<DesktopV2>>) -> Reply<StateView> {
         access: access_name(w.access()),
     }));
     Ok(Json(StateView {
-        network: network_view(&inner),
+        network: network_view(&inner, s.directory.is_some()),
         wallets,
         supply: SUPPLY.to_string(),
         default_fee: DEFAULT_FEE.to_string(),
@@ -871,7 +910,10 @@ async fn send(
     let to = address::decode(&req.to)
         .ok_or_else(|| bad("This is not a valid ORVEXA v2 test address (ovxt1…)."))?;
     let amount = atoms(&req.amount)?;
-    let fee = req.fee.as_deref().map_or(Ok(DEFAULT_FEE), atoms)?;
+    let fee = match req.fee.as_deref() {
+        Some(text) => Some(atoms(text)?),
+        None => None,
+    };
     let consent = match &req.public {
         Some(c) => Some(PublicConsent {
             to: address::decode(&c.to)
@@ -887,6 +929,17 @@ async fn send(
         .map(|(_, h)| h.clone())
         .ok_or_else(|| bad("Create the private v2 test network first."))?;
     let chain = handle.chain_id();
+    // No fee given: the recommended one, computed just like the quote shown.
+    let fee = match fee {
+        Some(fee) => fee,
+        None => {
+            let multiplier = handle.fee_conditions().await.congestion;
+            let (w, _) = session(&mut inner, &id)?;
+            w.recommended_fee(amount, multiplier)
+                .map_err(wallet_error)?
+                .0
+        }
+    };
     let (w, _) = session(&mut inner, &id)?;
     let (env, receipt) = tokio::task::block_in_place(|| match &consent {
         Some(c) => w
@@ -906,6 +959,50 @@ async fn send(
             Err(Failure(StatusCode::CONFLICT, "The private network refused the transfer. Wait for the wallet to sync and try again.".into()))
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FeeQuery {
+    amount: String,
+}
+
+#[derive(Serialize)]
+struct FeeQuote {
+    /// Recommended fee in atoms.
+    fee: String,
+    actions: usize,
+    per_action: u64,
+    /// 1 normally; 2 or 4 while many transfers wait for a block.
+    congestion: u64,
+    mempool: usize,
+}
+
+/// The recommended fee for sending `amount` from this wallet now.
+async fn fee_quote(
+    State(s): State<Arc<DesktopV2>>,
+    UrlPath(id): UrlPath<String>,
+    Query(q): Query<FeeQuery>,
+) -> Reply<FeeQuote> {
+    let amount = atoms(&q.amount)?;
+    let mut inner = s.inner.lock().await;
+    let handle = inner
+        .node
+        .as_ref()
+        .map(|(_, h)| h.clone())
+        .ok_or_else(|| bad("Create the private v2 test network first."))?;
+    let conditions = handle.fee_conditions().await;
+    let (w, _) = session(&mut inner, &id)?;
+    let (fee, actions) = w
+        .recommended_fee(amount, conditions.congestion)
+        .map_err(wallet_error)?;
+    Ok(Json(FeeQuote {
+        fee: fee.to_string(),
+        actions,
+        per_action: conditions.per_action,
+        congestion: conditions.congestion,
+        mempool: conditions.mempool,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -1097,7 +1194,9 @@ async fn create_network(
     for (_, w) in watch.values_mut() {
         tokio::task::block_in_place(|| sync(node, w))?;
     }
-    Ok(Json(serde_json::json!({ "network": network_view(&inner) })))
+    Ok(Json(
+        serde_json::json!({ "network": network_view(&inner, s.directory.is_some()) }),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -1105,18 +1204,69 @@ async fn create_network(
 struct JoinNetwork {
     /// Profile JSON text, or omitted for the built-in public test network.
     profile: Option<String>,
+    /// A network from the last `discover`, by chain ID.
+    chain_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct FoundNetwork {
+    name: String,
+    chain_id: String,
+    validators: usize,
+    nodes: usize,
+}
+
+/// Downloads and verifies the published network list (only when asked).
+async fn discover_networks(State(s): State<Arc<DesktopV2>>) -> Reply<serde_json::Value> {
+    let source = s
+        .directory
+        .clone()
+        .ok_or_else(|| bad("This build cannot look up public networks."))?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let http = s.http.clone();
+    let found = crate::directory::fetch(&http, &source.url, &source.trusted, now)
+        .await
+        .map_err(|e| {
+            eprintln!("ORVEXA v2 network list: {e}");
+            Failure(StatusCode::BAD_GATEWAY, e)
+        })?;
+    let view: Vec<FoundNetwork> = found
+        .networks
+        .iter()
+        .map(|p| FoundNetwork {
+            name: p.name.clone(),
+            chain_id: p.chain_id.clone(),
+            validators: p.validators.len(),
+            nodes: p.public_nodes().len(),
+        })
+        .collect();
+    s.inner.lock().await.found = found.networks;
+    Ok(Json(serde_json::json!({ "networks": view })))
 }
 
 async fn join_network(
     State(s): State<Arc<DesktopV2>>,
     Json(req): Json<JoinNetwork>,
 ) -> Reply<serde_json::Value> {
-    let profile = match &req.profile {
-        Some(text) => NetworkProfile::parse(text).map_err(|e| {
+    let profile = match (&req.profile, &req.chain_id) {
+        (Some(text), None) => NetworkProfile::parse(text).map_err(|e| {
             eprintln!("ORVEXA v2 network file refused: {e}");
             bad("This network file cannot be used: it is damaged or belongs to another network.")
         })?,
-        None => default_profile().ok_or_else(|| bad("This build has no public v2 test network yet. Import a network file from its operator."))?,
+        (None, Some(chain)) => s
+            .inner
+            .lock()
+            .await
+            .found
+            .iter()
+            .find(|p| &p.chain_id == chain)
+            .cloned()
+            .ok_or_else(|| bad("Look up the public networks again and pick one from the list."))?,
+        (None, None) => default_profile().ok_or_else(|| bad("This build has no public v2 test network yet. Import a network file from its operator."))?,
+        (Some(_), Some(_)) => return Err(bad("Choose either a network file or a listed network.")),
     };
     if profile.public_nodes().is_empty() {
         return Err(bad("This network file lists no public node to connect to."));
@@ -1133,7 +1283,9 @@ async fn join_network(
     let node = s.start_node(&profile).await.map_err(internal)?;
     inner.node = Some(node);
     inner.profile_name = Some(profile.name);
-    Ok(Json(serde_json::json!({ "network": network_view(&inner) })))
+    Ok(Json(
+        serde_json::json!({ "network": network_view(&inner, s.directory.is_some()) }),
+    ))
 }
 
 /// The current network file, to share with others.
